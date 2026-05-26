@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenPulse — Scan to Open on Phone</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F6F7F2;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 56px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,110,9,0.12);
+      max-width: 480px;
+      width: 90%;
+    }
+    .logo { font-size: 48px; margin-bottom: 8px; }
+    h1 { color: #006e09; font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+    .subtitle { color: #68756B; font-size: 15px; margin-bottom: 32px; }
+    #qr-canvas {
+      border-radius: 16px;
+      border: 3px solid #eff6e7;
+      padding: 12px;
+      background: white;
+      margin: 0 auto 28px;
+      display: block;
+    }
+    .steps { text-align: left; background: #f9fdf5; border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; }
+    .step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .step:last-child { margin-bottom: 0; }
+    .step-num {
+      background: #006e09; color: white; border-radius: 50%;
+      width: 26px; height: 26px; display: flex; align-items: center;
+      justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+    }
+    .step-text { color: #3d4a3f; font-size: 14px; line-height: 1.5; }
+    .step-text strong { color: #006e09; }
+    .url-box {
+      background: #1a1a1a; color: #38AD32; border-radius: 12px;
+      padding: 14px 20px; font-family: monospace; font-size: 14px;
+      word-break: break-all; margin-bottom: 16px;
+      border: 1px solid #333;
+    }
+    .note { color: #68756B; font-size: 13px; line-height: 1.6; }
+    .badge {
+      display: inline-block; background: #eff6e7; color: #006e09;
+      border-radius: 20px; padding: 4px 14px; font-size: 12px;
+      font-weight: 600; margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🍃</div>
+    <h1>GreenPulse</h1>
+    <p class="subtitle">The Collaborative Carbon Garden</p>
+    <span class="badge">📱 Mobile Setup</span>
+
+    <canvas id="qr-canvas" width="220" height="220"></canvas>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Install <strong>Expo Go</strong> on your phone from the App Store or Play Store</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Make sure your phone is on the <strong>same WiFi</strong> as this PC</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Android:</strong> Open Expo Go → tap "Scan QR Code" and scan above<br>
+        <strong>iPhone:</strong> Open Camera app → point at QR → tap the banner</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Or enter this URL manually in Expo Go:</div>
+      </div>
+    </div>
+
+    <div class="url-box" id="exp-url">exp://192.168.100.9:8082</div>
+
+    <p class="note">⚠️ If it keeps reloading, your phone and PC may be on different networks.<br>Try connecting your phone to the same WiFi as your PC.</p>
+  </div>
+
+  <script>
+    const url = 'exp://192.168.100.9:8082';
+    document.getElementById('exp-url').textContent = url;
+    QRCode.toCanvas(document.getElementById('qr-canvas'), url, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#006e09', light: '#ffffff' }
+    }, function(err) {
+      if (err) console.error(err);
+    });
+  </script>
+</body>
+</html>

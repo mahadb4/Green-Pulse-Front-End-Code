@@ -1,24 +1,35 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, ScrollView, Alert } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
 const { width } = Dimensions.get('window');
 
 export default function ConsentSuccessScreen({ navigation }: any) {
   const handleEnterGarden = () => {
-    // Navigate to S-09 Garden Screen (Core Loop)
     if (navigation && navigation.navigate) {
       navigation.navigate('Main');
     }
   };
 
+  const handleViewSetup = () => {
+    // Show a summary of what was set up during onboarding
+    Alert.alert(
+      '✅ Setup Complete',
+      'Here\'s what we set up for you:\n\n' +
+      '• 🪴 Eco Garden created\n' +
+      '• 👤 Nickname saved\n' +
+      '• 🛡️ Parent consent recorded\n' +
+      '• 📷 Camera ready for eco-actions\n\n' +
+      'Tap Enter Garden to start earning points!',
+      [{ text: 'Got it!', onPress: handleEnterGarden }]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      <BrandHeader />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.innerContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.brandText}>GreenPulse</Text>
-          </View>
 
           {/* Success Card */}
           <View style={styles.card}>
@@ -57,7 +68,7 @@ export default function ConsentSuccessScreen({ navigation }: any) {
             </TouchableOpacity>
 
             {/* Secondary subtle link */}
-            <TouchableOpacity style={styles.secondaryButton}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleViewSetup}>
               <Text style={styles.secondaryButtonText}>View Setup Details</Text>
             </TouchableOpacity>
 
@@ -83,14 +94,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 40,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  brandText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#006e09',
   },
   card: {
     backgroundColor: '#FFFFFF',

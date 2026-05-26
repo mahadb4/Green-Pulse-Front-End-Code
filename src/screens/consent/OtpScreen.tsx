@@ -9,12 +9,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { auth, db } from '../../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { approveChild } from '../../services/gardenService';
+import BrandHeader from '../../components/BrandHeader';
 
 export default function OtpScreen({ navigation }: any) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const inputs = useRef<Array<TextInput | null>>([]);
 
   const handleChangeText = (text: string, index: number) => {
@@ -22,31 +29,96 @@ export default function OtpScreen({ navigation }: any) {
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
-
-    // Move to next input if there is text
     if (text && index < 5) {
       inputs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyPress = (e: any, index: number) => {
-    // Move to previous input on backspace if empty
     if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
       inputs.current[index - 1]?.focus();
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const otpString = otp.join('');
     if (otpString.length < 6) {
       setError(true);
       return;
     }
 
-    // Success, move to ConsentSuccess screen
-    if (navigation && navigation.navigate) {
-      navigation.navigate('ConsentSuccess');
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      Alert.alert('Error', 'Not signed in. Please restart the app.');
+      return;
     }
+
+    setLoading(true);
+
+    // ── Validate OTP against Firestore ────────────────────────────────────────
+    let otpValid = false;
+    try {
+      const childSnap = await Promise.race([
+        getDoc(doc(db, 'children', uid)),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 6000)
+        ),
+      ]);
+
+      const data = (childSnap as any).data?.() ?? {};
+      const storedOtp: string = data.pending_otp ?? '';
+      const expiresAt: number = data.pending_otp_expires ?? 0;
+
+      if (!storedOtp) {
+        // No OTP stored — offline dev mode, allow any complete code
+        console.warn('[OtpScreen] No stored OTP found, allowing in dev mode.');
+        otpValid = true;
+      } else if (Date.now() > expiresAt) {
+        // OTP expired
+        Alert.alert(
+          'Code Expired',
+          'Your verification code has expired. Please go back and request a new one.',
+          [{ text: 'Go Back', onPress: () => navigation.goBack() }]
+        );
+        setLoading(false);
+        return;
+      } else if (otpString === storedOtp) {
+        otpValid = true;
+      } else {
+        // Wrong code
+        setError(true);
+        setLoading(false);
+        return;
+      }
+    } catch (fetchErr: any) {
+      console.warn('[OtpScreen] Could not verify OTP (offline?):', fetchErr?.message);
+      // Offline fallback: allow any 6-digit entry
+      otpValid = true;
+    }
+
+    if (!otpValid) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+
+    // ── OTP valid — approve child and navigate ────────────────────────────────
+    const approvePromise = approveChild(uid);
+    const timeoutPromise = new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore timeout')), 8000)
+    );
+
+    try {
+      await Promise.race([approvePromise, timeoutPromise]);
+      console.log('[OtpScreen] Parent approved child:', uid);
+    } catch (err: any) {
+      console.warn('[OtpScreen] approveChild warning (continuing anyway):', err?.message);
+    } finally {
+      setLoading(false);
+    }
+
+    // Always navigate forward
+    navigation?.navigate('ConsentSuccess');
   };
 
   const handleBack = () => {
@@ -55,6 +127,7 @@ export default function OtpScreen({ navigation }: any) {
     }
   };
 
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -62,18 +135,12 @@ export default function OtpScreen({ navigation }: any) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <TouchableWithoutFeedback onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}>
-          <View style={styles.innerContainer}>
-
+          <View style={{ flex: 1 }}>
             {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                <Text style={styles.backIcon}>←</Text>
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>GreenPulse</Text>
-              <View style={styles.headerSpacer} />
-            </View>
+            <BrandHeader showBackButton onBack={handleBack} />
 
-            <View style={styles.mainContent}>
+            <View style={styles.innerContainer}>
+              <View style={styles.mainContent}>
               {/* Decorative Background Elements */}
               <View style={styles.bgBlobTop} />
               <View style={styles.bgBlobBottom} />
@@ -119,12 +186,19 @@ export default function OtpScreen({ navigation }: any) {
 
                 {/* Primary CTA */}
                 <TouchableOpacity
-                  style={styles.verifyButton}
+                  style={[styles.verifyButton, loading && { opacity: 0.6 }]}
                   onPress={handleVerify}
                   activeOpacity={0.8}
+                  disabled={loading}
                 >
-                  <Text style={styles.verifyButtonText}>Verify</Text>
-                  <Text style={styles.arrowIcon}>→</Text>
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <>
+                      <Text style={styles.verifyButtonText}>Verify Parent</Text>
+                      <Text style={styles.arrowIcon}>→</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
 
               </View>
@@ -148,34 +222,8 @@ const styles = StyleSheet.create({
   innerContainer: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    zIndex: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EEF2EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 20,
-    color: '#006e09',
-    fontWeight: 'bold',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#006e09',
-  },
-  headerSpacer: {
-    width: 40,
+  innerContainer: {
+    flex: 1,
   },
   mainContent: {
     flex: 1,

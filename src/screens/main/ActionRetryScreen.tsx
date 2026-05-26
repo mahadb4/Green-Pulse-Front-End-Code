@@ -9,20 +9,20 @@ import {
   StatusBar,
   Platform
 } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
-export default function ActionRetryScreen({ navigation }: any) {
+export default function ActionRetryScreen({ navigation, route }: any) {
+  const { reason = 'Action not clearly visible', confidence } = route.params || {};
 
   const handleTryAgain = () => {
-    // Navigate back to the Camera screen to retake the photo
     if (navigation && navigation.navigate) {
       navigation.navigate('Camera');
     }
   };
 
   const handleCancel = () => {
-    // Return to the Garden home
     if (navigation && navigation.navigate) {
-      navigation.navigate('Garden');
+      navigation.navigate('Main');
     }
   };
 
@@ -31,9 +31,7 @@ export default function ActionRetryScreen({ navigation }: any) {
       <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
       
       {/* Brand Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>GreenPulse</Text>
-      </View>
+      <BrandHeader />
 
       <View style={styles.contentWrapper}>
         {/* Main Card Container */}
@@ -42,13 +40,11 @@ export default function ActionRetryScreen({ navigation }: any) {
           {/* Illustration */}
           <View style={styles.mascotContainer}>
             <View style={styles.glowEffect} />
-            {/* Mascot Placeholder for 3D sad Zara */}
             <Image 
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA7fRaphkEV5-cbpjNjIQlPCwHWA0Ch1MrjftoBLOZvHtLSNf-JPdYSFfw-NyKofOH52HxJ5dYyd0FfVBuzJc3ZdNOw-M9TZ8Do2bTbghUasWfFJYKGCtyE5CJOu1wLnNW861RUzkIZkDj_7cnEukDIb7UH5MR755WOklVlhqfumFpZawHRIY7ZqbVTbM8fswhYSU_wf6RQ5D-2cpoUAlsKDWgQSssHVaW_ZXrU8C6nx6GGKw5FddsZffziOPq2TVPs1tLdSu4PaEE' }}
               style={styles.mascotImage}
               resizeMode="cover"
             />
-            {/* Floating Error Icon */}
             <View style={styles.errorIconContainer}>
               <Text style={styles.errorIcon}>⚠️</Text>
             </View>
@@ -56,8 +52,13 @@ export default function ActionRetryScreen({ navigation }: any) {
 
           {/* Text Content */}
           <View style={styles.textSection}>
-            <Text style={styles.title}>Oops! Let’s try that again.</Text>
-            <Text style={styles.subtitle}>Make sure the photo is clear.</Text>
+            <Text style={styles.title}>Oops! Let's try again.</Text>
+            <Text style={styles.subtitle}>{reason}</Text>
+            {confidence !== undefined && (
+              <Text style={styles.confidenceText}>
+                AI confidence: {Math.round(confidence * 100)}% (need 80%+)
+              </Text>
+            )}
           </View>
 
           {/* Action Buttons */}
@@ -86,22 +87,11 @@ export default function ActionRetryScreen({ navigation }: any) {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F6F7F2',
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 32,
-    zIndex: 20,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   contentWrapper: {
     flex: 1,
@@ -210,6 +200,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#68756B',
     textAlign: 'center',
+  },
+  confidenceText: {
+    fontSize: 13,
+    color: '#E35D5D',
+    marginTop: 8,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   buttonContainer: {
     width: '100%',

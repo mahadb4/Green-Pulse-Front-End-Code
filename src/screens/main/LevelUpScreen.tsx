@@ -9,6 +9,7 @@ import {
   StatusBar,
   Platform
 } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
 // --- Types for Backend Integration ---
 export type LevelUpParams = {
@@ -30,11 +31,8 @@ export default function LevelUpScreen({ navigation, route }: any) {
       {/* Decorative Background Dots (Simplified for RN) */}
       <View style={styles.backgroundPattern} />
 
+      <BrandHeader style={styles.header} />
       <View style={styles.contentWrapper}>
-        {/* Wordmark Logo */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>GreenPulse</Text>
-        </View>
 
         {/* Celebration Modal Container */}
         <View style={styles.modalCard}>
@@ -115,19 +113,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     zIndex: 2,
   },
-  logoContainer: {
+  header: {
     position: 'absolute',
-    top: 48,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    top: 40,
+    width: '100%',
     zIndex: 10,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   modalCard: {
     width: '100%',

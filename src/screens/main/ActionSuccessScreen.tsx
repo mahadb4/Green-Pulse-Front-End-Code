@@ -10,16 +10,21 @@ import {
   Platform,
   ScrollView
 } from 'react-native';
+import { ACTION_CONFIGS, ActionType } from '../../services/actionService';
+import BrandHeader from '../../components/BrandHeader';
 
 export default function ActionSuccessScreen({ navigation, route }: any) {
-  const { points = 50 } = route.params || {};
+  const { points = 10, actionType, confidence, detectedLabel } = route.params || {};
 
   const handleReturn = () => {
-    // Navigate back to the main Garden home tab
     if (navigation && navigation.navigate) {
       navigation.navigate('Main');
     }
   };
+
+  const actionConfig = actionType && ACTION_CONFIGS[actionType as ActionType] 
+    ? ACTION_CONFIGS[actionType as ActionType] 
+    : null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -30,12 +35,10 @@ export default function ActionSuccessScreen({ navigation, route }: any) {
       <View style={styles.ambientBottomRight} />
       <View style={styles.ambientCenter} />
 
+      <BrandHeader />
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.innerContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>GreenPulse</Text>
-          </View>
 
           {/* Mascot Hero Image */}
           <View style={styles.mascotContainer}>
@@ -48,9 +51,9 @@ export default function ActionSuccessScreen({ navigation, route }: any) {
 
           {/* Text Content */}
           <View style={styles.textSection}>
-            <Text style={styles.title}>Awesome Job!</Text>
+            <Text style={styles.title}>Awesome Job! 🎉</Text>
             <Text style={styles.subtitle}>
-              You've completed your daily action. Your garden is thriving thanks to you.
+              Your eco-action has been verified! Your garden is thriving thanks to you.
             </Text>
           </View>
 
@@ -66,18 +69,27 @@ export default function ActionSuccessScreen({ navigation, route }: any) {
             
             <View style={styles.divider} />
             
+            {/* Action details */}
             <View style={styles.boostContainer}>
               <View style={styles.boostLeft}>
                 <View style={styles.boostIconCircle}>
-                  <Text style={styles.boostIcon}>🌱</Text>
+                  <Text style={styles.boostIcon}>{actionConfig?.icon ?? '🌱'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.boostLabel}>Garden Boost</Text>
-                  <Text style={styles.boostValue}>Level 4 Growth</Text>
+                  <Text style={styles.boostLabel}>Action Verified</Text>
+                  <Text style={styles.boostValue}>{actionConfig?.label ?? 'Eco Action'}</Text>
                 </View>
               </View>
-              <Text style={styles.trendingIcon}>📈</Text>
+              {confidence && <Text style={styles.confidenceText}>
+                {Math.round(confidence * 100)}% 🎯
+              </Text>}
             </View>
+
+            {detectedLabel && (
+              <View style={styles.detectedContainer}>
+                <Text style={styles.detectedLabel}>AI detected: {detectedLabel}</Text>
+              </View>
+            )}
           </View>
 
           {/* CTA Action */}
@@ -131,18 +143,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5fced',
     opacity: 0.4,
     borderRadius: 192,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 16,
-    marginBottom: 24,
-    zIndex: 10,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   scrollContent: {
     flexGrow: 1,
@@ -292,6 +292,24 @@ const styles = StyleSheet.create({
   trendingIcon: {
     fontSize: 28,
     color: '#4CAF50',
+  },
+  confidenceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#006e09',
+  },
+  detectedContainer: {
+    marginTop: 12,
+    backgroundColor: '#EEF2EA',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    width: '100%',
+  },
+  detectedLabel: {
+    fontSize: 13,
+    color: '#68756B',
+    textAlign: 'center',
   },
   primaryButton: {
     width: '100%',

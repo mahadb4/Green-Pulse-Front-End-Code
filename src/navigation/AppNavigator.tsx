@@ -25,6 +25,7 @@ import LevelUpScreen from '../screens/main/LevelUpScreen';
 
 import ParentDashboardScreen from '../screens/parent/ParentDashboardScreen';
 
+import AlertsScreen from '../screens/main/AlertsScreen';
 import OfflineErrorScreen from '../screens/errors/OfflineErrorScreen';
 import PermissionErrorScreen from '../screens/errors/PermissionErrorScreen';
 import AnalysisErrorScreen from '../screens/errors/AnalysisErrorScreen';
@@ -105,6 +106,9 @@ export default function AppNavigator() {
 
       {/* Parent Flow */}
       <Stack.Screen name="ParentDashboard" component={ParentDashboardScreen} />
+
+      {/* Alerts / Notifications */}
+      <Stack.Screen name="Alerts" component={AlertsScreen} />
 
       {/* Error Flow */}
       <Stack.Screen name="OfflineError" component={OfflineErrorScreen} />

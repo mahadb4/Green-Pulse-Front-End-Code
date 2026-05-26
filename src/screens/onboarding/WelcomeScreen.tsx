@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -13,11 +14,10 @@ export default function WelcomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Unified Header */}
+      <BrandHeader />
+
       <View style={styles.innerContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerText}>GreenPulse</Text>
-        </View>
 
         {/* Main Content */}
         <View style={styles.mainContent}>
@@ -68,18 +68,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 32,
     alignItems: 'center',
-  },
-  header: {
-    flexShrink: 0,
-    marginBottom: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   mainContent: {
     flex: 1,

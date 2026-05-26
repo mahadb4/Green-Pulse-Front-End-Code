@@ -1,11 +1,9 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { initializeAuth, getAuth, Auth } from "firebase/auth";
+import { initializeAuth, getAuth, Auth, browserLocalPersistence, connectAuthEmulator } from "firebase/auth";
 // @ts-ignore: TS resolves DOM typings instead of React Native typings for this export
 import { getReactNativePersistence } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
-import { createAsyncStorage } from '@react-native-async-storage/async-storage';
-
-const appStorage = createAsyncStorage("app");
+import { getFirestore, connectFirestoreEmulator, Firestore } from "firebase/firestore";
+import { Platform } from 'react-native';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCbu8RtuhTxuOwkr5bd-5g50i5JTUFCyiE",
@@ -26,9 +24,16 @@ if (!getApps().length) {
 
 let auth: Auth;
 try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(appStorage)
-  });
+  if (Platform.OS === 'web') {
+    auth = initializeAuth(app, {
+      persistence: browserLocalPersistence
+    });
+  } else {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+  }
 } catch (error: any) {
   if (error.code === 'auth/already-initialized') {
     auth = getAuth(app);
@@ -39,3 +44,19 @@ try {
 
 export { auth };
 export const db: Firestore = getFirestore(app);
+
+// ---- Emulator configuration ----
+// ONLY connect to emulators on web (localhost:8081 in browser).
+// On a physical phone, "localhost" means the phone itself — not your PC —
+// so emulator connections will fail and crash the app.
+const g = global as any;
+if (!g.__firebaseEmulatorsConnected && Platform.OS === 'web') {
+  g.__firebaseEmulatorsConnected = true;
+  try {
+    connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log('[firebase] ✅ Connected to local emulators (web only)');
+  } catch (e) {
+    console.warn('[firebase] ⚠️ Could not connect to emulators:', e);
+  }
+}

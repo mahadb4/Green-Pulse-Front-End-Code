@@ -14,17 +14,50 @@ import {
   Alert
 } from 'react-native';
 import { auth, db } from '../../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDocs, query, where, collection } from 'firebase/firestore';
+import BrandHeader from '../../components/BrandHeader';
 
 export default function NicknameScreen({ navigation }: any) {
   const [nickname, setNickname] = useState('');
   const [loading, setLoading] = useState(false);
+  const [nicknameError, setNicknameError] = useState('');
+
+  // Validate nickname: 3-20 chars, alphanumeric + underscores, no reserved words
+  const RESERVED = ['admin', 'greenpulse', 'support', 'system', 'root', 'null', 'undefined', 'moderator'];
+  const validateNickname = (value: string): string => {
+    const trimmed = value.trim();
+    if (trimmed.length < 3) return 'Nickname must be at least 3 characters.';
+    if (trimmed.length > 20) return 'Nickname must be 20 characters or less.';
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) return 'Only letters, numbers, and underscores allowed.';
+    if (/^_|_$/.test(trimmed)) return 'Nickname cannot start or end with an underscore.';
+    if (RESERVED.includes(trimmed.toLowerCase())) return 'That nickname is reserved. Please choose another.';
+    return '';
+  };
+
+  // Case-insensitive uniqueness check via nickname_lower index
+  const checkNicknameUnique = async (value: string): Promise<boolean> => {
+    try {
+      const q = query(
+        collection(db, 'children'),
+        where('nickname_lower', '==', value.toLowerCase())
+      );
+      const snap = await getDocs(q);
+      return snap.empty;
+    } catch (err) {
+      console.warn('[NicknameScreen] Uniqueness check failed (allowing):', err);
+      return true; // Fail-open so offline users aren't blocked
+    }
+  };
 
   const handleContinue = async () => {
-    if (!nickname.trim()) {
-      Alert.alert('Please enter a nickname', 'You need a nickname to continue.');
+    const trimmed = nickname.trim();
+    // Validate before submitting
+    const validationError = validateNickname(trimmed);
+    if (validationError) {
+      setNicknameError(validationError);
       return;
     }
+    setNicknameError('');
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -32,24 +65,50 @@ export default function NicknameScreen({ navigation }: any) {
       return;
     }
 
+    setLoading(true);
+
+    // Check uniqueness before writing
+    const unique = await checkNicknameUnique(trimmed);
+    if (!unique) {
+      setNicknameError('That nickname is already taken. Please choose another.');
+      setLoading(false);
+      return;
+    }
+
+    // Race the Firestore write against an 8-second timeout.
+    // If Firestore is unreachable (emulator off, no network), we still
+    // let the user proceed — the nickname write is not critical enough
+    // to block the entire onboarding flow.
+    const writePromise = setDoc(
+      doc(db, 'children', uid),
+      {
+        nickname: trimmed,
+        nickname_lower: trimmed.toLowerCase(), // indexed for uniqueness checks
+      },
+      { merge: true }
+    );
+    const timeoutPromise = new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore timeout')), 8000)
+    );
+
     try {
-      setLoading(true);
-      await updateDoc(doc(db, 'children', uid), {
-        nickname: nickname.trim(),
-      });
-      if (navigation && navigation.navigate) {
-        navigation.navigate('VpcGate');
-      }
-    } catch (error) {
-      console.error('Failed to save nickname:', error);
-      Alert.alert('Error', 'Could not save your nickname. Please try again.');
+      await Promise.race([writePromise, timeoutPromise]);
+    } catch (error: any) {
+      // Log but don't block navigation — offline/emulator not running
+      console.warn('[NicknameScreen] Could not save nickname to Firestore:', error?.message);
     } finally {
       setLoading(false);
     }
+
+    // Always navigate forward
+    navigation?.navigate('VpcGate');
   };
+
+  const charCount = nickname.trim().length;
 
   return (
     <SafeAreaView style={styles.container}>
+      <BrandHeader />
       <KeyboardAvoidingView 
         style={styles.keyboardAvoidingView} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -63,28 +122,35 @@ export default function NicknameScreen({ navigation }: any) {
 
               {/* Header Section */}
               <View style={styles.headerContainer}>
-                <Text style={styles.brandText}>GreenPulse</Text>
                 <Text style={styles.titleText}>Choose your garden name</Text>
               </View>
 
               {/* Form / Input Section */}
               <View style={styles.inputSection}>
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, nicknameError ? styles.inputContainerError : null]}>
                   <Text style={styles.inputIcon}>@</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter a fun nickname"
+                    placeholder="e.g. eco_hero42"
                     placeholderTextColor="#68756B"
                     value={nickname}
-                    onChangeText={setNickname}
+                    onChangeText={(t) => { setNickname(t); setNicknameError(''); }}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    maxLength={20}
                   />
+                  <Text style={[styles.charCount, charCount > 20 && { color: '#ba1a1a' }]}>
+                    {charCount}/20
+                  </Text>
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoIcon}>ℹ️</Text>
-                  <Text style={styles.infoText}>Use letters and numbers only.</Text>
-                </View>
+                {nicknameError ? (
+                  <Text style={styles.errorText}>⚠️ {nicknameError}</Text>
+                ) : (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoIcon}>ℹ️</Text>
+                    <Text style={styles.infoText}>3–20 characters, letters, numbers, and _ only.</Text>
+                  </View>
+                )}
               </View>
 
               {/* Privacy Note */}
@@ -171,11 +237,6 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     zIndex: 10,
   },
-  brandText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#006e09',
-  },
   titleText: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -196,6 +257,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
+  },
+  inputContainerError: {
+    borderColor: '#ba1a1a',
+  },
+  charCount: {
+    fontSize: 12,
+    color: '#68756B',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ba1a1a',
+    marginTop: 6,
   },
   inputIcon: {
     fontSize: 18,

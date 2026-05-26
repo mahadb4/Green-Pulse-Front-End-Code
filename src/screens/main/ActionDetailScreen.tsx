@@ -10,6 +10,7 @@ import {
   StatusBar,
   Platform
 } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
 export default function ActionDetailScreen({ navigation }: any) {
   // Mock points for this action (In real app, this would come from a DB/Props)
@@ -28,14 +29,8 @@ export default function ActionDetailScreen({ navigation }: any) {
       
       {/* Main Content Container */}
       <View style={styles.mainContent}>
-        
         {/* Header / Logo */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoIcon}>🌱</Text>
-            <Text style={styles.logoText}>GreenPulse</Text>
-          </View>
-        </View>
+        <BrandHeader style={styles.header} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
@@ -135,27 +130,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(216, 225, 211, 0.3)',
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  logoIcon: {
-    fontSize: 24,
-    marginRight: 6,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    letterSpacing: -0.5,
   },
   scrollContent: {
     paddingHorizontal: 20,

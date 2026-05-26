@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  Platform
+  Platform,
 } from 'react-native';
+import { auth } from '../../firebase';
+import { listenToChildProfile, ChildData } from '../../services/gardenService';
+import BrandHeader from '../../components/BrandHeader';
 
 // Types for backend integration
 export type LeaderboardUser = {
@@ -78,24 +81,43 @@ const remainingList: LeaderboardUser[] = [
 export default function LeaderboardScreen() {
   const [activeTab, setActiveTab] = useState('Class');
   const tabs = ['Class', 'School', 'Neighborhood', 'Friends'];
+  const [child, setChild] = useState<ChildData | null>(null);
+  const uid = auth.currentUser?.uid ?? '';
+
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = listenToChildProfile(uid, setChild);
+    return unsub;
+  }, [uid]);
+
+  // Merge real user score into the mock list
+  const liveScore = child?.energy_points ?? 3120;
+  const liveName  = child?.nickname ?? 'You';
+  const mergedList: LeaderboardUser[] = remainingList.map(u =>
+    u.isCurrentUser ? { ...u, score: liveScore, name: liveName } : u
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
       
       {/* Top App Bar */}
-      <View style={styles.topAppBar}>
-        <View style={styles.appBarAvatar}>
-          <Image 
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBJ0cuse53ned7zCSeur5pOfAQlOsz_Qr5ILDJn9MAdEkpyZGv3I3S1X_SNIkVOxbpfFeRqbmsqwwJ2udu90BLUJvXz6PJt-hEDEOhPG1LEcE7FwetBZAgtCPqAkk5dBU6qYUc5wYqlk4My3eKkC3PtPaigvEDQB0cRWxmhG7o4ohhFkaz57EP8SUFsulYjiKKJs3F59qiLFBcGiplhhN0T-8VrO7VakSdP887jiDnMnQeChozGKO1h5PKKP8iUUuSx2-ZYSq3YZdk' }}
-            style={styles.avatarImage}
-          />
-        </View>
-        <Text style={styles.appBarTitle}>GreenPulse</Text>
-        <TouchableOpacity style={styles.appBarIcon}>
-          <Text style={{ fontSize: 20 }}>🔔</Text>
-        </TouchableOpacity>
-      </View>
+      <BrandHeader
+        style={styles.topAppBar}
+        leftContent={
+          <View style={styles.appBarAvatar}>
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBJ0cuse53ned7zCSeur5pOfAQlOsz_Qr5ILDJn9MAdEkpyZGv3I3S1X_SNIkVOxbpfFeRqbmsqwwJ2udu90BLUJvXz6PJt-hEDEOhPG1LEcE7FwetBZAgtCPqAkk5dBU6qYUc5wYqlk4My3eKkC3PtPaigvEDQB0cRWxmhG7o4ohhFkaz57EP8SUFsulYjiKKJs3F59qiLFBcGiplhhN0T-8VrO7VakSdP887jiDnMnQeChozGKO1h5PKKP8iUUuSx2-ZYSq3YZdk' }}
+              style={styles.avatarImage}
+            />
+          </View>
+        }
+        rightContent={
+          <TouchableOpacity style={styles.appBarIcon}>
+            <Text style={{ fontSize: 20 }}>🔔</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
@@ -188,7 +210,7 @@ export default function LeaderboardScreen() {
 
         {/* Remaining List */}
         <View style={styles.listContainer}>
-          {remainingList.map((user) => {
+          {mergedList.map((user) => {
             const isMe = user.isCurrentUser;
             return (
               <View 
@@ -263,12 +285,6 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-  },
-  appBarTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   appBarIcon: {
     width: 40,

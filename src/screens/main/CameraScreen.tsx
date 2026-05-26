@@ -8,46 +8,61 @@ import {
     SafeAreaView,
     StatusBar,
     ActivityIndicator,
-    Platform
+    Alert,
+    Platform,
+    Animated,
+    Easing,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function CameraScreen({ navigation }: any) {
     const [permission, requestPermission] = useCameraPermissions();
     const [facing, setFacing] = useState<'back' | 'front'>('back');
+    const [isCapturing, setIsCapturing] = useState(false);
+    const [isPickingGallery, setIsPickingGallery] = useState(false);
+    const [lastGalleryThumb, setLastGalleryThumb] = useState<string | null>(null);
+
     const cameraRef = useRef<CameraView>(null);
+    const videoRef = useRef<any>(null);
+    const canvasRef = useRef<any>(null);
+
+    // Subtle pulse animation for the shutter button
+    const pulseAnim = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         if (Platform.OS === 'web') {
             setupWebCamera();
         }
-    }, []);
-
-    const videoRef = useRef<any>(null);
-    const canvasRef = useRef<any>(null);
+        // Start subtle pulse loop on shutter
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                Animated.timing(pulseAnim, { toValue: 1.0,  duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+            ])
+        ).start();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const setupWebCamera = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
+            if (videoRef.current) videoRef.current.srcObject = stream;
         } catch (err) {
             console.error('Error accessing camera:', err);
         }
     };
 
     const handleClose = () => {
-        if (navigation && navigation.goBack) {
-            navigation.goBack();
-        }
+        if (navigation && navigation.goBack) navigation.goBack();
     };
 
     const toggleCameraFacing = () => {
         setFacing(current => (current === 'back' ? 'front' : 'back'));
     };
 
+    // ─── Camera Capture ───────────────────────────────────────────────────────
     const handleCapture = async () => {
+        if (isCapturing) return;
         const { points } = navigation.getState().routes.find((r: any) => r.name === 'Camera')?.params || {};
 
         if (Platform.OS === 'web') {
@@ -65,9 +80,10 @@ export default function CameraScreen({ navigation }: any) {
         }
 
         if (cameraRef.current) {
+            setIsCapturing(true);
             try {
                 const photo = await cameraRef.current.takePictureAsync({
-                    quality: 0.8,
+                    quality: 0.85,
                     base64: false,
                     exif: false,
                 });
@@ -76,38 +92,113 @@ export default function CameraScreen({ navigation }: any) {
                 }
             } catch (error) {
                 console.error('Failed to take photo', error);
-                // Fallback
-                if (navigation && navigation.navigate) {
-                    navigation.navigate('PhotoPreview', { points });
-                }
+                Alert.alert('Capture Failed', 'Could not take photo. Please try again.');
+            } finally {
+                setIsCapturing(false);
             }
         }
     };
 
+    // ─── Gallery Picker ───────────────────────────────────────────────────────
+    const handlePickGallery = async () => {
+        if (isPickingGallery) return;
+        const { points } = navigation.getState().routes.find((r: any) => r.name === 'Camera')?.params || {};
+
+        // Request media library permission
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (status !== 'granted') {
+            Alert.alert(
+                'Photo Library Access Required',
+                'GreenPulse needs access to your photo library to upload eco-action photos. Please enable it in your device Settings.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Open Settings', onPress: () => {
+                        // On iOS this opens app settings; on Android it opens the app info page
+                        // expo-linking can deep-link to settings but ImagePicker handles this gracefully
+                    }},
+                ]
+            );
+            return;
+        }
+
+        setIsPickingGallery(true);
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],   // Square crop for consistent AI analysis
+                quality: 0.85,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const asset = result.assets[0];
+                setLastGalleryThumb(asset.uri);
+                navigation.navigate('PhotoPreview', { photoUri: asset.uri, points });
+            }
+        } catch (err) {
+            console.error('[CameraScreen] Gallery pick error:', err);
+            Alert.alert('Error', 'Could not open photo library. Please try again.');
+        } finally {
+            setIsPickingGallery(false);
+        }
+    };
+
+    // ─── Permission Denied State ─────────────────────────────────────────────
     if (Platform.OS !== 'web') {
         if (!permission) {
-            // Camera permissions are still loading
-            return <View style={styles.container} />;
+            // Permissions still loading
+            return (
+                <View style={styles.container}>
+                    <ActivityIndicator size="large" color="#38ad32" style={{ flex: 1 }} />
+                </View>
+            );
         }
 
         if (!permission.granted) {
-            // Camera permissions are not granted yet
             return (
-                <View style={styles.container}>
-                    <Text style={{ textAlign: 'center', color: 'white', marginTop: 100 }}>
-                        We need your permission to show the camera
-                    </Text>
-                    <TouchableOpacity 
-                        onPress={requestPermission} 
-                        style={[styles.button, { marginTop: 20, marginHorizontal: 40 }]}
-                    >
-                        <Text style={styles.buttonText}>Grant Permission</Text>
-                    </TouchableOpacity>
+                <View style={styles.permissionContainer}>
+                    <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+                    <SafeAreaView style={styles.permissionSafeArea}>
+                        <TouchableOpacity style={styles.permCloseButton} onPress={handleClose}>
+                            <Text style={styles.permCloseText}>✕</Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.permContent}>
+                            <View style={styles.permIconCircle}>
+                                <Text style={styles.permIconText}>📷</Text>
+                            </View>
+                            <Text style={styles.permTitle}>Camera Access Needed</Text>
+                            <Text style={styles.permSubtitle}>
+                                GreenPulse needs camera access to capture your eco-actions for AI verification and reward processing.
+                            </Text>
+
+                            <TouchableOpacity style={styles.permButton} onPress={requestPermission}>
+                                <Text style={styles.permButtonText}>Allow Camera Access</Text>
+                            </TouchableOpacity>
+
+                            <Text style={styles.permOrText}>— or —</Text>
+
+                            {/* Let users pick from gallery even without camera */}
+                            <TouchableOpacity
+                                style={[styles.permButton, styles.permButtonSecondary]}
+                                onPress={handlePickGallery}
+                                disabled={isPickingGallery}
+                            >
+                                {isPickingGallery ? (
+                                    <ActivityIndicator size="small" color="#006e09" />
+                                ) : (
+                                    <Text style={styles.permButtonTextSecondary}>Choose from Gallery</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </SafeAreaView>
                 </View>
             );
         }
     }
 
+    // ─── Main Camera UI ───────────────────────────────────────────────────────
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
@@ -116,11 +207,11 @@ export default function CameraScreen({ navigation }: any) {
             <View style={styles.cameraViewport}>
                 {Platform.OS === 'web' ? (
                     <View style={styles.webCameraContainer}>
-                        <video 
-                            ref={videoRef} 
-                            autoPlay 
-                            playsInline 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                         <canvas ref={canvasRef} style={{ display: 'none' }} />
                     </View>
@@ -132,7 +223,7 @@ export default function CameraScreen({ navigation }: any) {
                         autofocus="on"
                     />
                 )}
-                {/* Subtle Vignette Overlay */}
+                {/* Vignette Overlay */}
                 <View style={styles.vignetteOverlay} />
             </View>
 
@@ -144,11 +235,7 @@ export default function CameraScreen({ navigation }: any) {
                     <TouchableOpacity style={styles.iconButton} onPress={handleClose}>
                         <Text style={styles.iconText}>✕</Text>
                     </TouchableOpacity>
-
                     <View style={styles.topBarRight}>
-                        <TouchableOpacity style={styles.iconButton}>
-                            <Text style={styles.iconText}>⚡</Text>
-                        </TouchableOpacity>
                         <TouchableOpacity style={styles.iconButton} onPress={toggleCameraFacing}>
                             <Text style={styles.iconText}>🔄</Text>
                         </TouchableOpacity>
@@ -170,10 +257,10 @@ export default function CameraScreen({ navigation }: any) {
                         </View>
                     </View>
 
-                    {/* Integrated Instruction Overlay */}
+                    {/* Instruction Overlay — text corrected to "Center the object" */}
                     <View style={styles.instructionContainer}>
                         <View style={styles.instructionBox}>
-                            <Text style={styles.instructionTitle}>Center the plant</Text>
+                            <Text style={styles.instructionTitle}>Center the object</Text>
                             <Text style={styles.instructionDesc}>Ensure good lighting for identification</Text>
                         </View>
                     </View>
@@ -182,28 +269,49 @@ export default function CameraScreen({ navigation }: any) {
                 {/* Bottom Controls */}
                 <View style={styles.bottomControls}>
                     <View style={styles.controlsRow}>
-                        {/* Gallery Button */}
-                        <TouchableOpacity style={styles.galleryButton}>
-                            <Image
-                                source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAacionShWf4gVzYYZS-lWXadtzbrKqFq4dJUqigdcd8BnvCPvuJs_8vQTbFTB4QvWrNS-WIhk5eoGLtz1etZVEB2BTm4v6yLHVx8lMzIWHwa2rifld77Uk8dR3YbTtIspItM_bWVVPNc6HR0LtZcFQgx_zOM1p6roLql1LT48wV1D9TEI5e8J5h8eMs6cDUrBE0lJvKnpS9XFLbLvbRnzb4lxuhrd1m_2vsiVyNgMaulJtM0AMbz9zr6DhilYS4lRhiTHGDMTjlTE' }}
-                                style={styles.galleryImage}
-                            />
+
+                        {/* Gallery Button — fully wired */}
+                        <TouchableOpacity
+                            style={styles.galleryButton}
+                            onPress={handlePickGallery}
+                            disabled={isPickingGallery}
+                            activeOpacity={0.7}
+                        >
+                            {isPickingGallery ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : lastGalleryThumb ? (
+                                <Image source={{ uri: lastGalleryThumb }} style={styles.galleryImage} />
+                            ) : (
+                                <View style={styles.galleryPlaceholder}>
+                                    <Text style={styles.galleryPlaceholderIcon}>🖼️</Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
 
                         {/* Shutter Button */}
-                        <TouchableOpacity
-                            style={styles.shutterButton}
-                            onPress={handleCapture}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.shutterInner} />
-                        </TouchableOpacity>
+                        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                            <TouchableOpacity
+                                style={[styles.shutterButton, isCapturing && { opacity: 0.6 }]}
+                                onPress={handleCapture}
+                                activeOpacity={0.7}
+                                disabled={isCapturing}
+                            >
+                                {isCapturing ? (
+                                    <ActivityIndicator size="large" color="#FFFFFF" />
+                                ) : (
+                                    <View style={styles.shutterInner} />
+                                )}
+                            </TouchableOpacity>
+                        </Animated.View>
 
-                        {/* Help Button */}
-                        <TouchableOpacity style={styles.helpButton}>
-                            <Text style={styles.helpIcon}>?</Text>
-                        </TouchableOpacity>
+                        {/* Spacer to balance the layout symmetrically */}
+                        <View style={styles.helpButton}>
+                            <Text style={styles.helpIcon}>📷</Text>
+                        </View>
                     </View>
+
+                    {/* Bottom hint */}
+                    <Text style={styles.hintText}>Tap shutter to capture · Tap 🖼️ for gallery</Text>
                 </View>
 
             </SafeAreaView>
@@ -212,16 +320,97 @@ export default function CameraScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
+    // ── Permission Screen ──
+    permissionContainer: {
+        flex: 1,
+        backgroundColor: '#171d14',
+    },
+    permissionSafeArea: {
+        flex: 1,
+    },
+    permCloseButton: {
+        marginTop: 16,
+        marginLeft: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    permCloseText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    permContent: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 32,
+        gap: 16,
+    },
+    permIconCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(56, 173, 50, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    permIconText: {
+        fontSize: 48,
+    },
+    permTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#FFFFFF',
+        textAlign: 'center',
+    },
+    permSubtitle: {
+        fontSize: 15,
+        color: 'rgba(255,255,255,0.65)',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 8,
+    },
+    permButton: {
+        width: '100%',
+        paddingVertical: 16,
+        backgroundColor: '#38ad32',
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    permButtonSecondary: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.25)',
+    },
+    permButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    permButtonTextSecondary: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    permOrText: {
+        color: 'rgba(255,255,255,0.35)',
+        fontSize: 13,
+    },
+
+    // ── Camera Screen ──
     container: {
         flex: 1,
         backgroundColor: '#171d14',
     },
     cameraViewport: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        top: 0, left: 0, right: 0, bottom: 0,
         zIndex: 0,
     },
     webCameraContainer: {
@@ -230,28 +419,12 @@ const styles = StyleSheet.create({
     },
     cameraFrame: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    centerFallback: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    fallbackText: {
-        color: '#ffffff',
-        fontSize: 16,
-        marginTop: 12,
+        top: 0, left: 0, right: 0, bottom: 0,
     },
     vignetteOverlay: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(23, 29, 20, 0.4)', // Simulated vignette
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(23, 29, 20, 0.35)',
     },
     overlayLayer: {
         flex: 1,
@@ -275,14 +448,16 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.8)',
+        backgroundColor: 'rgba(255,255,255,0.82)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     iconText: {
-        fontSize: 18,
+        fontSize: 17,
         color: '#171d14',
     },
+
+    // ── Framing Guide ──
     framingContainer: {
         flex: 1,
         alignItems: 'center',
@@ -294,7 +469,7 @@ const styles = StyleSheet.create({
         height: 280,
         borderRadius: 32,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.4)',
+        borderColor: 'rgba(255,255,255,0.35)',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
@@ -303,36 +478,12 @@ const styles = StyleSheet.create({
         position: 'absolute',
         width: 48,
         height: 48,
-        borderColor: '#38ad32', // primary-container
+        borderColor: '#38ad32',
     },
-    cornerTL: {
-        top: -2,
-        left: -2,
-        borderTopWidth: 3,
-        borderLeftWidth: 3,
-        borderTopLeftRadius: 32,
-    },
-    cornerTR: {
-        top: -2,
-        right: -2,
-        borderTopWidth: 3,
-        borderRightWidth: 3,
-        borderTopRightRadius: 32,
-    },
-    cornerBL: {
-        bottom: -2,
-        left: -2,
-        borderBottomWidth: 3,
-        borderLeftWidth: 3,
-        borderBottomLeftRadius: 32,
-    },
-    cornerBR: {
-        bottom: -2,
-        right: -2,
-        borderBottomWidth: 3,
-        borderRightWidth: 3,
-        borderBottomRightRadius: 32,
-    },
+    cornerTL: { top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 32 },
+    cornerTR: { top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 32 },
+    cornerBL: { bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 32 },
+    cornerBR: { bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 32 },
     focusRing: {
         width: 80,
         height: 80,
@@ -349,31 +500,39 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.4)',
     },
     instructionContainer: {
-        marginTop: 48,
+        marginTop: 40,
     },
     instructionBox: {
-        backgroundColor: 'rgba(255,255,255,0.9)',
+        backgroundColor: 'rgba(255,255,255,0.92)',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 16,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 6,
     },
     instructionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 17,
+        fontWeight: '700',
         color: '#171d14',
-        marginBottom: 4,
+        marginBottom: 3,
     },
     instructionDesc: {
-        fontSize: 14,
+        fontSize: 13,
         color: '#68756B',
     },
+
+    // ── Bottom Controls ──
     bottomControls: {
         paddingHorizontal: 20,
-        paddingBottom: 32,
+        paddingBottom: 28,
         paddingTop: 16,
-        backgroundColor: 'rgba(0,0,0,0.2)',
+        backgroundColor: 'rgba(0,0,0,0.25)',
         alignItems: 'center',
+        gap: 12,
     },
     controlsRow: {
         flexDirection: 'row',
@@ -383,55 +542,65 @@ const styles = StyleSheet.create({
         maxWidth: 320,
     },
     galleryButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
         borderWidth: 2,
         borderColor: '#FFFFFF',
         overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    galleryPlaceholder: {
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    galleryPlaceholderIcon: {
+        fontSize: 24,
     },
     galleryImage: {
         width: '100%',
         height: '100%',
     },
     shutterButton: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         borderWidth: 4,
         borderColor: '#FFFFFF',
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#38ad32',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 12,
+        elevation: 8,
     },
     shutterInner: {
-        width: 76,
-        height: 76,
-        borderRadius: 38,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         backgroundColor: '#FFFFFF',
     },
     helpButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.8)',
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     helpIcon: {
-        fontSize: 24,
-        color: '#171d14',
-        fontWeight: 'bold',
+        fontSize: 22,
     },
-    button: {
-        backgroundColor: '#38ad32',
-        paddingVertical: 12,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
+    hintText: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.55)',
+        textAlign: 'center',
+        letterSpacing: 0.2,
     },
-    buttonText: {
-        color: '#ffffff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    }
 });

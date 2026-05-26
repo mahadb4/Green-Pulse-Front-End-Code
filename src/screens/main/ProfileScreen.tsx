@@ -1,153 +1,143 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  Platform
+  Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { auth } from '../../firebase';
+import { signOut } from 'firebase/auth';
+import { listenToChildProfile, getRewardLog, ChildData, RewardLogEntry } from '../../services/gardenService';
+import BrandHeader from '../../components/BrandHeader';
 
-// --- Types for Backend Integration ---
-
-export type UserProfile = {
-  name: string;
-  title: string;
-  avatarUrl: string;
-  energyPoints: number;
-  level: number;
-  nextLevel: number;
-  nextLevelXp: number;
-  progressPercent: number;
-  dailyStreak: number;
-  ecoImpact: number;
-};
-
-export type Badge = {
-  id: string;
-  title: string;
-  icon: string;
-  color: string;
-  bgColor: string;
-  isLocked: boolean;
-};
-
-export type Activity = {
-  id: string;
-  title: string;
-  points: number;
-  subtitle?: string;
-  time: string;
-  dotColor: string;
-  isFaded?: boolean;
-};
-
-// --- Mock Data (Replace with API calls later) ---
-
-const mockProfile: UserProfile = {
-  name: 'Alex Green',
-  title: 'Sprouting Botanist',
-  avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAj11HNDFqGUxCf2jEthWsv9EWBKZ64sKKdfO9_yv7DFlOUAyFpd1kJoPvChUaeoTn6QAEdOUeMWrPs4Et3PNMj6PJ-m-j-_kW0S_bk6r7ARG2pMfiEzR0V8YCpNDoHWoV4f90YonoWTYzg6EIPx3zNeIG_oX0Ib-hhBx6ua4Jr6OZqvljL4mUoCsominey1vq9ZRaxH7j3shoJoWN7-GBXk4rMNMFzrM3gt-ObVnEtkaKht5fujGX9ykI4oh5ay-G_tL4-oYsQKQU',
-  energyPoints: 2450,
-  level: 12,
-  nextLevel: 13,
-  nextLevelXp: 3000,
-  progressPercent: 82,
-  dailyStreak: 14,
-  ecoImpact: 128,
-};
-
-const mockBadges: Badge[] = [
-  { id: '1', title: 'Seed\nStarter', icon: '🌱', color: '#2F8F2A', bgColor: '#EEF2EA', isLocked: false },
-  { id: '2', title: 'Forest\nGuardian', icon: '🌳', color: '#b02263', bgColor: 'rgba(176, 34, 99, 0.1)', isLocked: false },
-  { id: '3', title: 'Solar\nSaver', icon: '☀️', color: '#F4B400', bgColor: 'rgba(244, 180, 0, 0.1)', isLocked: false },
-  { id: '4', title: 'Water\nWizard', icon: '💧', color: 'rgba(104, 117, 107, 0.5)', bgColor: 'rgba(222, 229, 214, 0.5)', isLocked: true },
-];
-
-const mockActivities: Activity[] = [
-  {
-    id: '1',
-    title: 'Logged a Zero-Waste Lunch',
-    points: 15,
-    time: 'Today, 1:30 PM',
-    dotColor: '#006e09',
-  },
-  {
-    id: '2',
-    title: 'Completed "Walk instead of Drive" Challenge',
-    points: 50,
-    subtitle: 'Earned Forest Guardian Badge',
-    time: 'Yesterday',
-    dotColor: '#006e09',
-  },
-  {
-    id: '3',
-    title: 'Recycled Electronic Waste',
-    points: 30,
-    time: 'Oct 12, 2023',
-    dotColor: '#dee5d6', // surface-variant
-    isFaded: true,
-  }
-];
+function getLevelFromPoints(points: number): number {
+  return Math.floor(points / 200) + 1;
+}
+function getProgressPercent(points: number): number {
+  return ((points % 200) / 200) * 100;
+}
+function getTitleFromStreak(streak: number): string {
+  if (streak >= 30) return '🌲 Forest Guardian';
+  if (streak >= 14) return '🌳 Tree Keeper';
+  if (streak >= 7)  return '🌿 Sapling Tender';
+  if (streak >= 3)  return '🌱 Seedling Starter';
+  return '🌾 Eco Newcomer';
+}
 
 export default function ProfileScreen({ navigation }: any) {
+  const [child, setChild] = useState<ChildData | null>(null);
+  const [rewardLog, setRewardLog] = useState<RewardLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const uid = auth.currentUser?.uid ?? '';
+
+  useEffect(() => {
+    const unsub = listenToChildProfile(uid, (data) => {
+      setChild(data);
+      setLoading(false);
+    });
+
+    // Timeout fallback: stop loading after 4s regardless
+    const timeout = setTimeout(() => setLoading(false), 4000);
+
+    getRewardLog(uid).then(setRewardLog).catch(console.warn);
+
+    return () => {
+      unsub();
+      clearTimeout(timeout);
+    };
+  }, [uid]);
+
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut(auth);
+        },
+      },
+    ]);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#006e09" />
+      </View>
+    );
+  }
+
+  const points = child?.energy_points ?? 0;
+  const streak = child?.current_streak ?? 0;
+  const nickname = child?.nickname ?? 'Eco Hero';
+  const level = getLevelFromPoints(points);
+  const nextLevelXp = level * 200;
+  const progressPercent = getProgressPercent(points);
+  const title = getTitleFromStreak(streak);
+  const parentApproved = child?.parent_approved ?? false;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
 
       {/* Top App Bar */}
-      <View style={styles.topAppBar}>
-        <View style={styles.appBarAvatar}>
-          <Image 
-            source={{ uri: mockProfile.avatarUrl }}
-            style={styles.avatarImage}
-          />
-        </View>
-        <Text style={styles.appBarTitle}>GreenPulse</Text>
-        <TouchableOpacity style={styles.appBarIcon}>
-          <Text style={{ fontSize: 20 }}>🔔</Text>
-        </TouchableOpacity>
-      </View>
+      <BrandHeader
+        style={styles.topAppBar}
+        leftContent={
+          <View style={styles.appBarAvatar}>
+            <Text style={styles.avatarEmoji}>🌿</Text>
+          </View>
+        }
+        rightContent={
+          <TouchableOpacity style={styles.appBarIcon}>
+            <Text style={{ fontSize: 20 }}>🔔</Text>
+          </TouchableOpacity>
+        }
+      />
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        
-        {/* Profile Header Section */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+        {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.largeAvatarContainer}>
-            <Image 
-              source={{ uri: mockProfile.avatarUrl }}
-              style={styles.largeAvatar}
-            />
-            {/* Garden Stage Badge */}
+            <View style={styles.largeAvatarCircle}>
+              <Text style={styles.largeAvatarEmoji}>🌱</Text>
+            </View>
             <View style={styles.stageBadge}>
-              <Text style={{ fontSize: 16 }}>🪴</Text>
+              <Text style={{ fontSize: 14 }}>🪴</Text>
             </View>
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{mockProfile.name}</Text>
+            <Text style={styles.profileName}>@{nickname}</Text>
             <View style={styles.titleRow}>
-              <Text style={styles.titleIcon}>🌿</Text>
-              <Text style={styles.profileTitle}>{mockProfile.title}</Text>
+              <Text style={styles.profileTitle}>{title}</Text>
             </View>
+            {!parentApproved && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingText}>⏳ Awaiting parent approval</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Bento Grid Stats */}
         <View style={styles.statsGrid}>
-          {/* Energy Points (Spans Full Width basically, but acts as 2 cols in CSS, here we use full width) */}
+          {/* Energy Points */}
           <View style={styles.energyCard}>
             <View style={styles.energyHeader}>
               <View>
                 <Text style={styles.statLabel}>ENERGY POINTS</Text>
                 <View style={styles.energyValueRow}>
-                  <Text style={styles.energyValue}>{mockProfile.energyPoints.toLocaleString()}</Text>
+                  <Text style={styles.energyValue}>{points.toLocaleString()}</Text>
                   <Text style={styles.energyUnit}>XP</Text>
                 </View>
               </View>
@@ -155,131 +145,99 @@ export default function ProfileScreen({ navigation }: any) {
                 <Text style={styles.boltIcon}>⚡</Text>
               </View>
             </View>
-            
             <View style={styles.levelProgressContainer}>
               <View style={styles.levelRow}>
-                <Text style={styles.levelText}>Level {mockProfile.level}</Text>
-                <Text style={styles.levelText}>Level {mockProfile.nextLevel} ({mockProfile.nextLevelXp.toLocaleString()} XP)</Text>
+                <Text style={styles.levelText}>Level {level}</Text>
+                <Text style={styles.levelText}>Level {level + 1} ({nextLevelXp.toLocaleString()} XP)</Text>
               </View>
               <View style={styles.progressBarBackground}>
-                <View style={[styles.progressBarFill, { width: `${mockProfile.progressPercent}%` }]} />
+                <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
               </View>
             </View>
           </View>
 
-          {/* Bottom Row of Stats */}
+          {/* Bottom Row */}
           <View style={styles.statsBottomRow}>
-            {/* Daily Streak */}
             <View style={styles.smallStatCard}>
               <View style={[styles.smallStatIconContainer, { backgroundColor: 'rgba(244, 180, 0, 0.1)' }]}>
                 <Text style={styles.smallStatIcon}>🔥</Text>
               </View>
               <Text style={styles.statLabel}>DAILY STREAK</Text>
               <View style={styles.smallStatValueRow}>
-                <Text style={styles.smallStatValue}>{mockProfile.dailyStreak}</Text>
+                <Text style={styles.smallStatValue}>{streak}</Text>
                 <Text style={styles.smallStatUnit}>Days</Text>
               </View>
             </View>
-
-            {/* Eco Impact */}
             <View style={styles.smallStatCard}>
               <View style={[styles.smallStatIconContainer, { backgroundColor: 'rgba(148, 246, 139, 0.3)' }]}>
                 <Text style={styles.smallStatIcon}>🌍</Text>
               </View>
-              <Text style={styles.statLabel}>ECO IMPACT</Text>
+              <Text style={styles.statLabel}>ECO ACTIONS</Text>
               <View style={styles.smallStatValueRow}>
-                <Text style={styles.smallStatValue}>{mockProfile.ecoImpact}</Text>
-                <Text style={styles.smallStatUnit}>Actions</Text>
+                <Text style={styles.smallStatValue}>{rewardLog.length}</Text>
+                <Text style={styles.smallStatUnit}>Done</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Badge Collection */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Badge Collection</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
+        {/* Streak Multiplier Info */}
+        {streak >= 3 && (
+          <View style={styles.streakCard}>
+            <Text style={styles.streakCardIcon}>🔥</Text>
+            <View style={styles.streakCardText}>
+              <Text style={styles.streakCardTitle}>Streak Bonus Active!</Text>
+              <Text style={styles.streakCardDesc}>You earn 1.5× points on every action</Text>
+            </View>
           </View>
-          <View style={styles.badgesGrid}>
-            {mockBadges.map((badge) => (
-              <View 
-                key={badge.id} 
-                style={[
-                  styles.badgeCard,
-                  badge.isLocked && styles.badgeCardLocked
-                ]}
-              >
-                <View style={[styles.badgeIconContainer, { backgroundColor: badge.bgColor }]}>
-                  <Text style={[styles.badgeIcon, badge.isLocked && { opacity: 0.5 }]}>
-                    {badge.icon}
-                  </Text>
-                </View>
-                <Text 
-                  style={[
-                    styles.badgeText,
-                    badge.isLocked && styles.badgeTextLocked,
-                    { textAlign: 'center' }
-                  ]}
-                >
-                  {badge.title}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        )}
 
-        {/* Activity History */}
+        {/* Recent Activity */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Activity History</Text>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
           <View style={styles.historyCard}>
-            <View style={styles.timelineLine} />
-            
-            <View style={styles.timelineContent}>
-              {mockActivities.map((activity) => (
-                <View key={activity.id} style={styles.timelineItem}>
-                  {/* Dot */}
-                  <View 
-                    style={[
-                      styles.timelineDot, 
-                      { backgroundColor: activity.dotColor }
-                    ]} 
-                  />
-                  {/* Text Content */}
-                  <View style={styles.timelineTextContainer}>
-                    <Text style={[styles.timelineItemTitle, activity.isFaded && styles.fadedText]}>
-                      {activity.title}
-                    </Text>
-                    <Text style={[styles.timelineItemSubtitle, activity.isFaded && styles.fadedText]}>
-                      +{activity.points} Energy Points
-                      {activity.subtitle ? ` • ${activity.subtitle}` : ''}
-                    </Text>
-                    <Text style={[styles.timelineItemTime, activity.isFaded && styles.fadedText]}>
-                      {activity.time}
-                    </Text>
-                  </View>
+            {rewardLog.length === 0 ? (
+              <View style={styles.emptyHistory}>
+                <Text style={styles.emptyHistoryIcon}>🌱</Text>
+                <Text style={styles.emptyHistoryText}>No actions yet. Start logging eco-actions!</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.timelineLine} />
+                <View style={styles.timelineContent}>
+                  {rewardLog.slice(0, 5).map((entry, index) => (
+                    <View key={index} style={styles.timelineItem}>
+                      <View style={[styles.timelineDot, { backgroundColor: '#006e09' }]} />
+                      <View style={styles.timelineTextContainer}>
+                        <Text style={styles.timelineItemTitle}>
+                          {entry.action_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        </Text>
+                        <Text style={styles.timelineItemSubtitle}>
+                          +{entry.points_awarded} XP
+                          {entry.multiplier_applied ? ' 🔥 (1.5× bonus)' : ''}
+                          {' • '}Streak: {entry.streak}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-
-            <TouchableOpacity style={styles.viewHistoryButton}>
-              <Text style={styles.viewHistoryButtonText}>View Full History</Text>
-            </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
-        {/* Temporary Parent Dashboard Link */}
-        <TouchableOpacity 
+        {/* Parent Dashboard Link */}
+        <TouchableOpacity
           style={styles.parentLink}
-          onPress={() => {
-            console.log('Navigating to ParentDashboard...');
-            navigation.navigate('ParentDashboard');
-          }}
+          onPress={() => navigation.navigate('ParentDashboard')}
         >
           <Text style={styles.parentLinkIcon}>🛡️</Text>
           <Text style={styles.parentLinkText}>Switch to Parent Mode</Text>
+        </TouchableOpacity>
+
+        {/* Sign Out */}
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+          <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -288,10 +246,8 @@ export default function ProfileScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F6F7F2',
-  },
+  container: { flex: 1, backgroundColor: '#F6F7F2' },
+  loadingContainer: { flex: 1, backgroundColor: '#F6F7F2', alignItems: 'center', justifyContent: 'center' },
   topAppBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -302,397 +258,123 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   appBarAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#dee5d6',
-    overflow: 'hidden',
+    width: 40, height: 40, borderRadius: 20,
+    borderWidth: 1, borderColor: '#dee5d6',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#e9f0e1',
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
+  avatarEmoji: { fontSize: 20 },
+  appBarIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  profileHeader: { alignItems: 'center', marginBottom: 24 },
+  largeAvatarContainer: { position: 'relative', marginBottom: 12 },
+  largeAvatarCircle: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: '#e9f0e1', borderWidth: 4, borderColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center',
   },
-  appBarTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#006e09',
-  },
-  appBarIcon: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  largeAvatarContainer: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  largeAvatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-  },
+  largeAvatarEmoji: { fontSize: 40 },
   stageBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    backgroundColor: '#94f68b', // secondary-container
-    borderRadius: 16,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    zIndex: 20,
+    position: 'absolute', bottom: -4, right: -4,
+    backgroundColor: '#94f68b', borderRadius: 16,
+    width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#FFFFFF', zIndex: 20,
   },
-  profileInfo: {
-    alignItems: 'center',
+  profileInfo: { alignItems: 'center' },
+  profileName: { fontSize: 24, fontWeight: 'bold', color: '#1F2A1F' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  profileTitle: { fontSize: 16, color: '#68756B' },
+  pendingBadge: {
+    marginTop: 8, backgroundColor: 'rgba(244, 180, 0, 0.1)',
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4,
+    borderWidth: 1, borderColor: 'rgba(244, 180, 0, 0.3)',
   },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  titleIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  profileTitle: {
-    fontSize: 16,
-    color: '#68756B',
-  },
-  statsGrid: {
-    gap: 16,
-    marginBottom: 24,
-  },
+  pendingText: { fontSize: 12, color: '#856000', fontWeight: '600' },
+  statsGrid: { gap: 16, marginBottom: 16 },
   energyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#EEF2EA',
+    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20,
+    borderWidth: 1, borderColor: '#EEF2EA',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 12,
-        elevation: 2,
-      },
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2 },
     }),
   },
-  energyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#68756B',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  energyValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 4,
-  },
-  energyValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#006e09',
-  },
-  energyUnit: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#68756B',
-    marginLeft: 6,
-  },
-  boltIconContainer: {
-    backgroundColor: 'rgba(56, 173, 50, 0.1)',
-    padding: 10,
-    borderRadius: 20,
-  },
-  boltIcon: {
-    fontSize: 20,
-  },
-  levelProgressContainer: {
-    width: '100%',
-  },
-  levelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  levelText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#68756B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  progressBarBackground: {
-    width: '100%',
-    height: 10,
-    backgroundColor: '#EEF2EA',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#006e09',
-    borderRadius: 5,
-  },
-  statsBottomRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
+  energyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
+  statLabel: { fontSize: 12, fontWeight: 'bold', color: '#68756B', textTransform: 'uppercase', letterSpacing: 1 },
+  energyValueRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 4 },
+  energyValue: { fontSize: 28, fontWeight: 'bold', color: '#006e09' },
+  energyUnit: { fontSize: 14, fontWeight: 'bold', color: '#68756B', marginLeft: 6 },
+  boltIconContainer: { backgroundColor: 'rgba(56, 173, 50, 0.1)', padding: 10, borderRadius: 20 },
+  boltIcon: { fontSize: 20 },
+  levelProgressContainer: { width: '100%' },
+  levelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  levelText: { fontSize: 11, fontWeight: 'bold', color: '#68756B', textTransform: 'uppercase', letterSpacing: 0.5 },
+  progressBarBackground: { width: '100%', height: 10, backgroundColor: '#EEF2EA', borderRadius: 5, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#006e09', borderRadius: 5 },
+  statsBottomRow: { flexDirection: 'row', gap: 16 },
   smallStatCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#EEF2EA',
+    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, alignItems: 'center',
+    borderWidth: 1, borderColor: '#EEF2EA',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 12,
-        elevation: 2,
-      },
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2 },
     }),
   },
-  smallStatIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
+  smallStatIconContainer: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  smallStatIcon: { fontSize: 24 },
+  smallStatValueRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 4 },
+  smallStatValue: { fontSize: 24, fontWeight: 'bold', color: '#1F2A1F' },
+  smallStatUnit: { fontSize: 14, color: '#68756B', marginLeft: 4 },
+  streakCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(244, 180, 0, 0.08)',
+    borderWidth: 1, borderColor: 'rgba(244, 180, 0, 0.2)',
+    borderRadius: 20, padding: 16, marginBottom: 16,
   },
-  smallStatIcon: {
-    fontSize: 24,
-  },
-  smallStatValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginTop: 4,
-  },
-  smallStatValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-  },
-  smallStatUnit: {
-    fontSize: 14,
-    color: '#68756B',
-    marginLeft: 4,
-  },
-  sectionContainer: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    marginBottom: 16, // If no header flex
-  },
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#006e09',
-  },
-  badgesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  badgeCard: {
-    width: '22%', // approx 4 per row
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#EEF2EA',
-    ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 12,
-        elevation: 2,
-      },
-    }),
-  },
-  badgeCardLocked: {
-    backgroundColor: 'rgba(238, 242, 234, 0.5)', // surface-soft/50
-    borderColor: 'transparent',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  badgeIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  badgeIcon: {
-    fontSize: 24,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    textAlign: 'center',
-  },
-  badgeTextLocked: {
-    color: 'rgba(104, 117, 107, 0.6)', // text-secondary/60
-  },
+  streakCardIcon: { fontSize: 28, marginRight: 14 },
+  streakCardText: { flex: 1 },
+  streakCardTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2A1F' },
+  streakCardDesc: { fontSize: 13, color: '#68756B', marginTop: 2 },
+  sectionContainer: { marginBottom: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1F2A1F', marginBottom: 16 },
   historyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#EEF2EA',
+    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20,
+    borderWidth: 1, borderColor: '#EEF2EA', position: 'relative',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03,
-        shadowRadius: 12,
-        elevation: 2,
-      },
+      web: { boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.03)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2 },
     }),
-    position: 'relative',
   },
+  emptyHistory: { alignItems: 'center', paddingVertical: 24 },
+  emptyHistoryIcon: { fontSize: 40, marginBottom: 12 },
+  emptyHistoryText: { fontSize: 15, color: '#68756B', textAlign: 'center' },
   timelineLine: {
-    position: 'absolute',
-    left: 26,
-    top: 36,
-    bottom: 80, // stop before the button
-    width: 2,
-    backgroundColor: '#dee5d6', // surface-variant
+    position: 'absolute', left: 26, top: 36, bottom: 20,
+    width: 2, backgroundColor: '#dee5d6',
   },
-  timelineContent: {
-    paddingLeft: 24,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  timelineItem: {
-    position: 'relative',
-    marginBottom: 24,
-  },
+  timelineContent: { paddingLeft: 24, paddingTop: 8, paddingBottom: 8 },
+  timelineItem: { position: 'relative', marginBottom: 20 },
   timelineDot: {
-    position: 'absolute',
-    left: -24,
-    top: 4,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    transform: [{ translateX: -7 }], // Center on the line
-    zIndex: 10,
+    position: 'absolute', left: -24, top: 4,
+    width: 14, height: 14, borderRadius: 7,
+    borderWidth: 2, borderColor: '#FFFFFF',
+    transform: [{ translateX: -7 }], zIndex: 10,
   },
-  timelineTextContainer: {
-    paddingLeft: 8,
-  },
-  timelineItemTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    marginBottom: 2,
-  },
-  timelineItemSubtitle: {
-    fontSize: 13,
-    color: '#68756B',
-  },
-  timelineItemTime: {
-    fontSize: 11,
-    color: '#68756B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 4,
-  },
-  fadedText: {
-    opacity: 0.7,
-  },
-  viewHistoryButton: {
-    width: '100%',
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#D8E1D3',
-    borderRadius: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  viewHistoryButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#006e09',
-  },
+  timelineTextContainer: { paddingLeft: 8 },
+  timelineItemTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2A1F', marginBottom: 2 },
+  timelineItemSubtitle: { fontSize: 13, color: '#68756B' },
   parentLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEF2EA',
-    borderWidth: 1,
-    borderColor: '#D8E1D3',
-    paddingVertical: 16,
-    borderRadius: 20,
-    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#EEF2EA', borderWidth: 1, borderColor: '#D8E1D3',
+    paddingVertical: 16, borderRadius: 20, marginTop: 8,
   },
-  parentLinkIcon: {
-    fontSize: 20,
-    marginRight: 12,
+  parentLinkIcon: { fontSize: 20, marginRight: 12 },
+  parentLinkText: { fontSize: 16, fontWeight: 'bold', color: '#1F2A1F' },
+  signOutBtn: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 16, borderRadius: 20, marginTop: 12,
+    borderWidth: 1, borderColor: 'rgba(186, 26, 26, 0.2)',
+    backgroundColor: 'rgba(255, 218, 214, 0.2)',
   },
-  parentLinkText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-  }
+  signOutText: { fontSize: 16, fontWeight: 'bold', color: '#ba1a1a' },
 });

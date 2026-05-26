@@ -8,6 +8,7 @@ import {
   StatusBar,
   Linking
 } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
 export default function PermissionErrorScreen({ navigation }: any) {
   const openSettings = () => {
@@ -19,10 +20,7 @@ export default function PermissionErrorScreen({ navigation }: any) {
       <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerIcon}>🌿</Text>
-        <Text style={styles.headerTitle}>GreenPulse</Text>
-      </View>
+      <BrandHeader style={styles.header} />
 
       <View style={styles.content}>
         <View style={styles.card}>
@@ -55,23 +53,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F7F2',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#eff6e7',
-    backgroundColor: '#FFFFFF',
-  },
-  headerIcon: {
-    fontSize: 24,
-    marginRight: 8,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   content: {
     flex: 1,

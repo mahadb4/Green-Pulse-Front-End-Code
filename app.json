@@ -18,7 +18,21 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [],
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GreenPulse needs access to your photo library to upload eco-action photos for AI verification.",
+          "cameraPermission": "GreenPulse needs camera access to capture your eco-actions for reward verification."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GreenPulse needs camera access to capture your eco-actions for reward verification."
+        }
+      ]
+    ],
     "scheme": "greenpulse",
     "android": {
       "adaptiveIcon": {

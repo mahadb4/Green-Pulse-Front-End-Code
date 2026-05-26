@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Image } from 'react-native';
+import BrandHeader from '../../components/BrandHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -17,11 +18,8 @@ export default function VpcGateScreen({ navigation }: any) {
       <View style={styles.bgBlobTop} />
       <View style={styles.bgBlobBottom} />
 
+      <BrandHeader />
       <View style={styles.innerContainer}>
-        {/* Header Logo */}
-        <View style={styles.header}>
-          <Text style={styles.brandText}>GreenPulse</Text>
-        </View>
 
         {/* Main Content Canvas */}
         <View style={styles.card}>
@@ -95,18 +93,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
-  },
-  header: {
-    position: 'absolute',
-    top: 40,
-    width: '100%',
-    alignItems: 'center',
-  },
-  brandText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
   },
   card: {
     backgroundColor: '#FFFFFF',
