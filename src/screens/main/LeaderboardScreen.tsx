@@ -3,115 +3,106 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { auth } from '../../firebase';
-import { listenToChildProfile, ChildData } from '../../services/gardenService';
+import { listenToLeaderboard, LeaderboardEntry } from '../../services/gardenService';
 import BrandHeader from '../../components/BrandHeader';
 
-// Types for backend integration
-export type LeaderboardUser = {
-  id: string;
-  rank: number;
-  name: string;
-  score: number;
-  avatarUrl?: string;
-  isCurrentUser?: boolean;
-  subtext?: string;
-};
+// Deterministic colour per name so avatars stay stable across renders.
+const AVATAR_COLORS = ['#16A34A', '#0EA5E9', '#F59E0B', '#8B5CF6', '#EF4444', '#14B8A6', '#EC4899', '#65A30D'];
+function colorFor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (name.trim().slice(0, 2) || '?').toUpperCase();
+}
 
-// Mock data (replace with backend API call later)
-const topThree: LeaderboardUser[] = [
-  { 
-    id: '1', 
-    rank: 1, 
-    name: 'LeafLeader', 
-    score: 5120, 
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCM4a-5th3Tsv9MDiADcVzX1lbXp5UvHYuc66-1Hlu0yp9eNBS--RZYg7kH-R08sJaPUAVxLs1A0_tRfIVz-mA-8cLl1ujT5KLU58sXn6CiT-sLQ7v2i_ggYYPglsNGsuesMVLWYF5UyvCBHAtQV7zWCsBaJgQTiZlHbneZFMA6igJ78YJKd2lZK2BOgdKaxTthr14zVcShWk7Qpm_h_z5jo6QGiwQ0S5-Ufr88dxnFlGolfQ5gQ58ZNkAK16rE9iFEqDuFAKmwzrI',
-    subtext: 'Top 1%'
-  },
-  { 
-    id: '2', 
-    rank: 2, 
-    name: 'EcoNinja', 
-    score: 4250, 
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDHX8retKiPcLAPsfJ_9nc3i8mI-cwUeQPFrDpY-vMQBXtkufqQVqq9aKb_EC-asfJCLGFhey11BlnFwLdTn0jS8-sV8eYIpMz7ne3ZWXz3Vy83s_Yfdb64jyvikMgISrLS2qRulX72cYPmztwadUEjV8lKikrgcRltHEVc9eyf1uWmjPxhKb-9mvV_rla8i4qtaADCvnllj-Xun-ZUgOgBJXakK2_dib0-Jo1nSOAZ4Xi7kBkaWpZ4Suv3d0OQzkdwoFoXItG71T0'
-  },
-  { 
-    id: '3', 
-    rank: 3, 
-    name: 'Sprout', 
-    score: 3980, 
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDIa9POvtxssg0FF4oThVvN6prSRJrQ283g2XpwptLgHieP60RIs4H3UuWaZoz8zPQH2xmoXr2fjZaWPW90CojObTWkTpkwdjTlIsLwauRO5sILSgevSdheL_y_8qZkCkJF34eISUvXGdR5OyDnxXkoWZuTS-rgHzrByGtsHYuZk5UpIyRBwQVG3MeMFF-s29NBeH3VQftz9rwX-t-KipxVp85_vzhE8JvoC-wFK_y-LLo85YHqrbTc4cpLbBuAkhI-v7Ff2G_zaTo'
-  },
-];
-
-const remainingList: LeaderboardUser[] = [
-  {
-    id: '4',
-    rank: 4,
-    name: 'GreenThumb',
-    score: 3450,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDtASkIfuqwXjQgY5IpW5dnRxMSn5XA3gykHwCeGHkKUTPzzwiAdKAawrwe7X5i2KX0KjGhg9wn8DMwQvJ7bs0P1iAXuqpYeMScQCRUdFzltLD5v223oQl_MQY8ddaXocaShidP3ZTJ5Ec3ApdFKd_33e0hUMWg76Rw7ANijrHJBD0iMeccMfK6PeGlH7kNM1MKN4nU1-C7t9j7y1CzvrODFRms0yKGcohjYPgITQmZiWormnYJYCvVskQqRVePTjmnbv-4vGqyENk',
-    subtext: 'Class 4B'
-  },
-  {
-    id: '5',
-    rank: 5,
-    name: 'You',
-    score: 3120,
-    avatarUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzGO99f_IPuccWm92nhsbzEBEn3cPkFdbMS92Y_8c5k8aLQhwiCC8EKZ_dL0-MVy0w0_hDTW5iez7ofa--jU96l_YHtAGSXzXltDXRltjeyO1gLkYzI72sX3kTkE-At4Q4krVwTalS6cngOwRtq3WpqIdJvnFxpXboJRiITWv7zU-NZLHb_0nRQBgP8_eViSOMzzQN8EQ0AFoHQy6BgMGX_8uOW3RKUKB-g_QtMO0R-LK5kfSiixH4eJTJWEGTx2lDWeKfbaY3Cx8',
-    isCurrentUser: true,
-    subtext: 'Class 4B'
-  },
-  {
-    id: '6',
-    rank: 6,
-    name: 'SunSeeker',
-    score: 2890,
-    subtext: 'Class 4A'
-  }
-];
+function InitialsAvatar({ name, size }: { name: string; size: number }) {
+  return (
+    <View
+      style={{
+        width: size, height: size, borderRadius: size / 2,
+        backgroundColor: colorFor(name), alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <Text style={{ color: '#fff', fontWeight: '900', fontSize: size * 0.4 }}>{initials(name)}</Text>
+    </View>
+  );
+}
 
 export default function LeaderboardScreen() {
-  const [activeTab, setActiveTab] = useState('Class');
-  const tabs = ['Class', 'School', 'Neighborhood', 'Friends'];
-  const [child, setChild] = useState<ChildData | null>(null);
+  const [rows, setRows] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const uid = auth.currentUser?.uid ?? '';
 
   useEffect(() => {
-    if (!uid) return;
-    const unsub = listenToChildProfile(uid, setChild);
+    const unsub = listenToLeaderboard(50, (data) => {
+      setRows(data);
+      setLoading(false);
+    });
     return unsub;
-  }, [uid]);
+  }, []);
 
-  // Merge real user score into the mock list
-  const liveScore = child?.energy_points ?? 3120;
-  const liveName  = child?.nickname ?? 'You';
-  const mergedList: LeaderboardUser[] = remainingList.map(u =>
-    u.isCurrentUser ? { ...u, score: liveScore, name: liveName } : u
-  );
+  const myIndex = rows.findIndex((r) => r.uid === uid);
+  const myRank = myIndex >= 0 ? myIndex + 1 : null;
+
+  const hasPodium = rows.length >= 3;
+  const podium = hasPodium ? rows.slice(0, 3) : [];
+  const listRows = hasPodium ? rows.slice(3) : rows;
+
+  const renderPodiumCard = (entry: LeaderboardEntry, rank: number) => {
+    const isFirst = rank === 1;
+    const isMe = entry.uid === uid;
+    return (
+      <View
+        style={[
+          styles.podiumCard,
+          rank === 1 ? styles.podiumFirst : rank === 2 ? styles.podiumSecond : styles.podiumThird,
+        ]}
+      >
+        {isFirst && (
+          <View style={styles.crownIconContainer}><Text style={styles.crownIcon}>👑</Text></View>
+        )}
+        <View style={[styles.podiumAvatarWrapper, isFirst && styles.podiumAvatarFirstWrapper]}>
+          <InitialsAvatar name={entry.name} size={isFirst ? 88 : 72} />
+        </View>
+        <View
+          style={[
+            styles.podiumRankBadge,
+            isFirst ? styles.rankBadgeFirst : { backgroundColor: rank === 2 ? '#E0E0E0' : '#CD7F32' },
+          ]}
+        >
+          <Text style={isFirst ? styles.podiumRankTextFirst : [styles.podiumRankText, rank === 3 && { color: '#fff' }]}>
+            {rank}
+          </Text>
+        </View>
+        <Text style={isFirst ? styles.podiumNameFirst : styles.podiumName} numberOfLines={1}>
+          {isMe ? `${entry.name} (You)` : entry.name}
+        </Text>
+        <View style={isFirst ? styles.scoreBadgeFirst : styles.scoreBadge}>
+          <Text style={isFirst ? styles.scoreBadgeIconFirst : styles.scoreBadgeIcon}>⚡</Text>
+          <Text style={isFirst ? styles.scoreBadgeTextFirst : styles.scoreBadgeText}>{entry.score}</Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
-      
-      {/* Top App Bar */}
+
       <BrandHeader
         style={styles.topAppBar}
-        leftContent={
-          <View style={styles.appBarAvatar}>
-            <Image 
-              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBJ0cuse53ned7zCSeur5pOfAQlOsz_Qr5ILDJn9MAdEkpyZGv3I3S1X_SNIkVOxbpfFeRqbmsqwwJ2udu90BLUJvXz6PJt-hEDEOhPG1LEcE7FwetBZAgtCPqAkk5dBU6qYUc5wYqlk4My3eKkC3PtPaigvEDQB0cRWxmhG7o4ohhFkaz57EP8SUFsulYjiKKJs3F59qiLFBcGiplhhN0T-8VrO7VakSdP887jiDnMnQeChozGKO1h5PKKP8iUUuSx2-ZYSq3YZdk' }}
-              style={styles.avatarImage}
-            />
-          </View>
-        }
         rightContent={
           <TouchableOpacity style={styles.appBarIcon}>
             <Text style={{ fontSize: 20 }}>🔔</Text>
@@ -119,141 +110,63 @@ export default function LeaderboardScreen() {
         }
       />
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Page Header */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.pageHeader}>
           <Text style={styles.pageTitle}>Top Eco Heroes</Text>
-          <Text style={styles.pageSubtitle}>See who's leading the charge for a greener tomorrow.</Text>
+          <Text style={styles.pageSubtitle}>
+            {myRank
+              ? `You're ranked #${myRank} of ${rows.length}. Keep cleaning to climb!`
+              : "See who's leading the charge for a greener tomorrow."}
+          </Text>
         </View>
 
-        {/* Tabs Navigation */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabsContainer}
-          style={styles.tabsScroll}
-        >
-          {tabs.map((tab) => {
-            const isActive = tab === activeTab;
-            return (
-              <TouchableOpacity 
-                key={tab} 
-                style={[styles.tabButton, isActive && styles.tabButtonActive]}
-                onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Podium (Top 3) */}
-        <View style={styles.podiumContainer}>
-          {/* Rank 2 - EcoNinja */}
-          <View style={[styles.podiumCard, styles.podiumSecond]}>
-            <View style={styles.podiumAvatarWrapper}>
-              <Image source={{ uri: topThree[1].avatarUrl }} style={styles.podiumAvatar} />
-            </View>
-            <View style={[styles.podiumRankBadge, { backgroundColor: '#E0E0E0' }]}>
-              <Text style={styles.podiumRankText}>2</Text>
-            </View>
-            <Text style={styles.podiumName} numberOfLines={1}>{topThree[1].name}</Text>
-            <View style={styles.scoreBadge}>
-              <Text style={styles.scoreBadgeIcon}>⚡</Text>
-              <Text style={styles.scoreBadgeText}>{topThree[1].score}</Text>
-            </View>
+        {loading ? (
+          <View style={styles.stateWrap}>
+            <ActivityIndicator size="large" color="#16A34A" />
+            <Text style={styles.stateText}>Loading rankings…</Text>
           </View>
-
-          {/* Rank 1 - LeafLeader */}
-          <View style={[styles.podiumCard, styles.podiumFirst]}>
-            <View style={styles.crownIconContainer}>
-              <Text style={styles.crownIcon}>👑</Text>
-            </View>
-            <View style={[styles.podiumAvatarWrapper, styles.podiumAvatarFirstWrapper]}>
-              <Image source={{ uri: topThree[0].avatarUrl }} style={styles.podiumAvatar} />
-            </View>
-            <View style={[styles.podiumRankBadge, styles.rankBadgeFirst]}>
-              <Text style={styles.podiumRankTextFirst}>1</Text>
-            </View>
-            <Text style={styles.podiumNameFirst} numberOfLines={1}>{topThree[0].name}</Text>
-            <View style={styles.scoreBadgeFirst}>
-              <Text style={styles.scoreBadgeIconFirst}>⚡</Text>
-              <Text style={styles.scoreBadgeTextFirst}>{topThree[0].score}</Text>
-            </View>
-            {topThree[0].subtext && (
-              <View style={styles.topPercentBadge}>
-                <Text style={styles.topPercentText}>{topThree[0].subtext}</Text>
+        ) : rows.length === 0 ? (
+          <View style={styles.stateWrap}>
+            <Text style={styles.stateEmoji}>🌱</Text>
+            <Text style={styles.stateText}>No eco heroes yet — be the first to act!</Text>
+          </View>
+        ) : (
+          <>
+            {hasPodium && (
+              <View style={styles.podiumContainer}>
+                {renderPodiumCard(podium[1], 2)}
+                {renderPodiumCard(podium[0], 1)}
+                {renderPodiumCard(podium[2], 3)}
               </View>
             )}
-          </View>
 
-          {/* Rank 3 - Sprout */}
-          <View style={[styles.podiumCard, styles.podiumThird]}>
-            <View style={styles.podiumAvatarWrapper}>
-              <Image source={{ uri: topThree[2].avatarUrl }} style={styles.podiumAvatar} />
+            <View style={styles.listContainer}>
+              {listRows.map((user, idx) => {
+                const rank = (hasPodium ? 4 : 1) + idx;
+                const isMe = user.uid === uid;
+                return (
+                  <View key={user.uid} style={[styles.listItem, isMe && styles.listItemActive]}>
+                    {isMe && <View style={styles.activeIndicator} />}
+                    <Text style={[styles.listRank, isMe && styles.listRankActive]}>{rank}</Text>
+                    <View style={[styles.listAvatarContainer, isMe && styles.listAvatarContainerActive]}>
+                      <InitialsAvatar name={user.name} size={52} />
+                    </View>
+                    <View style={styles.listTextContent}>
+                      <Text style={[styles.listName, isMe && styles.listNameActive]} numberOfLines={1}>
+                        {isMe ? `${user.name} (You)` : user.name}
+                      </Text>
+                      {user.streak > 0 && <Text style={styles.listSubtext}>🔥 {user.streak}-day streak</Text>}
+                    </View>
+                    <View style={[styles.listScoreBadge, isMe && styles.listScoreBadgeActive]}>
+                      <Text style={[styles.listScoreText, isMe && styles.listScoreTextActive]}>{user.score}</Text>
+                      <Text style={[styles.listScoreIcon, isMe && styles.listScoreIconActive]}>⚡</Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            <View style={[styles.podiumRankBadge, { backgroundColor: '#CD7F32' }]}>
-              <Text style={[styles.podiumRankText, { color: '#ffffff' }]}>3</Text>
-            </View>
-            <Text style={styles.podiumName} numberOfLines={1}>{topThree[2].name}</Text>
-            <View style={styles.scoreBadge}>
-              <Text style={styles.scoreBadgeIcon}>⚡</Text>
-              <Text style={styles.scoreBadgeText}>{topThree[2].score}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Remaining List */}
-        <View style={styles.listContainer}>
-          {mergedList.map((user) => {
-            const isMe = user.isCurrentUser;
-            return (
-              <View 
-                key={user.id} 
-                style={[
-                  styles.listItem, 
-                  isMe && styles.listItemActive
-                ]}
-              >
-                {isMe && <View style={styles.activeIndicator} />}
-                
-                <Text style={[styles.listRank, isMe && styles.listRankActive]}>
-                  {user.rank}
-                </Text>
-                
-                <View style={[styles.listAvatarContainer, isMe && styles.listAvatarContainerActive]}>
-                  {user.avatarUrl ? (
-                    <Image source={{ uri: user.avatarUrl }} style={styles.listAvatar} />
-                  ) : (
-                    <Text style={{ fontSize: 24, color: '#68756B' }}>👤</Text>
-                  )}
-                </View>
-
-                <View style={styles.listTextContent}>
-                  <Text style={[styles.listName, isMe && styles.listNameActive]}>
-                    {user.name}
-                  </Text>
-                  {user.subtext && (
-                    <Text style={styles.listSubtext}>{user.subtext}</Text>
-                  )}
-                </View>
-
-                <View style={[styles.listScoreBadge, isMe && styles.listScoreBadgeActive]}>
-                  <Text style={[styles.listScoreText, isMe && styles.listScoreTextActive]}>
-                    {user.score}
-                  </Text>
-                  <Text style={[styles.listScoreIcon, isMe && styles.listScoreIconActive]}>⚡</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -309,6 +222,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.8,
   },
+  stateWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    gap: 14,
+  },
+  stateText: {
+    fontSize: 15,
+    color: '#166534',
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  stateEmoji: { fontSize: 48 },
   tabsScroll: {
     marginBottom: 32,
   },

@@ -374,6 +374,57 @@ export function listenToAction(
   });
 }
 
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  uid: string;
+  name: string;
+  score: number;
+  streak: number;
+}
+
+/**
+ * Live global leaderboard: children ordered by energy_points (desc).
+ * Single-field orderBy needs no composite index. Allowed by rules (any
+ * authenticated user may read children docs). Returns an unsubscribe fn.
+ */
+export function listenToLeaderboard(
+  limitCount: number,
+  callback: (rows: LeaderboardEntry[]) => void
+): Unsubscribe {
+  try {
+    const q = query(
+      collection(db, 'children'),
+      orderBy('energy_points', 'desc'),
+      limit(limitCount)
+    );
+    return onSnapshot(
+      q,
+      (snap) => {
+        const rows: LeaderboardEntry[] = snap.docs.map((d) => {
+          const x = d.data() as any;
+          const nick = x.nickname && String(x.nickname).trim();
+          return {
+            uid: d.id,
+            name: nick || `Eco Hero ${d.id.slice(-4)}`,
+            score: x.energy_points ?? 0,
+            streak: x.current_streak ?? 0,
+          };
+        });
+        callback(rows);
+      },
+      (err) => {
+        console.warn('[gardenService] listenToLeaderboard error:', err?.code || err);
+        callback([]);
+      }
+    );
+  } catch (e) {
+    console.warn('[gardenService] listenToLeaderboard setup failed:', e);
+    callback([]);
+    return () => {};
+  }
+}
+
 // ─── One-Time Reads ───────────────────────────────────────────────────────────
 
 /**
