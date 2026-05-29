@@ -9,6 +9,8 @@ import {
   Platform,
   ActivityIndicator,
   TouchableOpacity,
+  Animated,
+  Easing,
 } from 'react-native';
 import { listenToAction } from '../../services/gardenService';
 import { ACTION_CONFIGS, ActionType } from '../../services/actionService';
@@ -37,6 +39,38 @@ export default function ProcessingScreen({ navigation, route }: any) {
 
   const config = actionType ? ACTION_CONFIGS[actionType as ActionType] : null;
 
+  // Animations
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Start rotating glow
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 3000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Heartbeat pulse for mascot
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.08, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Fade in text
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   // Centralised, guarded navigation so only ONE transition ever fires
   const navigateOnce = (screen: string, params: object) => {
     if (hasNavigated.current) return;
@@ -50,6 +84,7 @@ export default function ProcessingScreen({ navigation, route }: any) {
 
   useEffect(() => {
     if (!actionId) {
+      console.warn('[ProcessingScreen] submitAction failed, not listening');
       // No actionId: go straight to retry, no delay needed
       navigateOnce('ActionRetry', {
         reason: 'Invalid submission details (no action ID)',
@@ -88,13 +123,7 @@ export default function ProcessingScreen({ navigation, route }: any) {
         }, 1200);
       } else if (newStatus === 'rejected') {
         unsubscribe();
-        // Brief pause so user sees the "❌ AI failed" state before redirect
-        setTimeout(() => {
-          navigateOnce('ActionRetry', {
-            reason: data.rejection_reason || 'Action could not be verified',
-            confidence: data.confidence ?? 0,
-          });
-        }, 1500);
+        // Do not auto-redirect; wait for user to press "Next"
       }
     });
 
@@ -105,6 +134,15 @@ export default function ProcessingScreen({ navigation, route }: any) {
       }
     };
   }, [actionId]);
+
+  const handleNext = () => {
+    if (actionData) {
+      navigateOnce('ActionRetry', {
+        reason: actionData.rejection_reason || 'Action could not be verified',
+        confidence: actionData.confidence ?? 0,
+      });
+    }
+  };
 
   const statusIcon = status === 'pending' ? '🔍' : status === 'verified' ? '✅' : '❌';
   const statusText =
@@ -124,24 +162,39 @@ export default function ProcessingScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
 
       {/* Brand */}
-      <BrandHeader />
+      <BrandHeader transparent={true} />
 
       {/* Main Card */}
       <View style={styles.cardContainer}>
 
         {/* Top: Mascot */}
-        <View style={styles.topContent}>
-          <View style={styles.mascotContainer}>
-            <View style={styles.glowEffect} />
+        <Animated.View style={[styles.topContent, { opacity: fadeAnim }]}>
+          <Animated.View style={[styles.mascotContainer, { transform: [{ scale: pulseAnim }] }]}>
+            <Animated.View
+              style={[
+                styles.glowEffect,
+                {
+                  transform: [
+                    {
+                      rotate: rotateAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '360deg'],
+                      }),
+                    },
+                    { scale: 1.2 },
+                  ],
+                },
+              ]}
+            />
             <Image
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDGBpL8XgqeRNpEh8VqvLTtLJ-mZ4f0BLGtWVpfNuNfsKnhBso2ANbImTW9yH5Q8wmvGUMWRNFLt62DBq7DFNQ5_2eOjpH71S83XZrnQTT9Db6sdI7VUFm7kbSabO9eJs3InNbnk9Z3qIkivXT3_aCBmwaH4rkkKMP8nZVxj3gQS_jHMQIfiviNaFeDD9fYVLwnI1mz-oRvxxj_YB-cqjYdpIhToag_uqku31SjBoXzpGOrWpY3TCF8QGYpGMKvPWvlwQFmGxEukHA' }}
               style={styles.mascotImage}
               resizeMode="cover"
             />
-          </View>
+          </Animated.View>
 
           {/* Status Icon */}
           <Text style={styles.statusIcon}>{statusIcon}</Text>
@@ -156,7 +209,7 @@ export default function ProcessingScreen({ navigation, route }: any) {
               <Text style={styles.actionBadgePoints}>+{config.points}pts</Text>
             </View>
           )}
-        </View>
+        </Animated.View>
 
         {/* Bottom: Progress + Tip */}
         <View style={styles.bottomContent}>
@@ -193,6 +246,16 @@ export default function ProcessingScreen({ navigation, route }: any) {
             </View>
             <Text style={styles.tipText}>{tip}</Text>
           </View>
+
+          {status === 'rejected' && (
+            <TouchableOpacity 
+              style={styles.nextButton}
+              onPress={handleNext}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.nextButtonText}>Next →</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </View>
@@ -201,16 +264,17 @@ export default function ProcessingScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F6F7F2', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#F0FFF4', alignItems: 'center' },
   cardContainer: {
     flex: 1, width: '90%', maxWidth: 400,
-    backgroundColor: '#FFFFFF', borderRadius: 32, padding: 28,
+    backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 32, padding: 28,
     alignItems: 'center', marginBottom: 32,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,1)',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 16px rgba(47, 143, 42, 0.1)' },
+      web: { backdropFilter: 'blur(24px)', boxShadow: '0 10px 25px rgba(22,163,74,0.08)' },
       default: {
-        shadowColor: '#2F8F2A', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1, shadowRadius: 16, elevation: 8,
+        shadowColor: '#16A34A', shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
       },
     }),
   },
@@ -229,12 +293,12 @@ const styles = StyleSheet.create({
   },
   statusIcon: { fontSize: 32, marginBottom: 8 },
   headline: {
-    fontSize: 22, fontWeight: 'bold', color: '#1F2A1F',
-    marginBottom: 8, textAlign: 'center',
+    fontSize: 24, fontWeight: '900', color: '#14532D',
+    marginBottom: 8, textAlign: 'center', letterSpacing: -0.5,
   },
   subtext: {
-    fontSize: 15, color: '#68756B', textAlign: 'center',
-    maxWidth: 260, lineHeight: 22,
+    fontSize: 16, color: '#166534', textAlign: 'center',
+    maxWidth: 260, lineHeight: 22, opacity: 0.8, fontWeight: '500',
   },
   actionBadge: {
     flexDirection: 'row', alignItems: 'center', marginTop: 16,
@@ -242,30 +306,48 @@ const styles = StyleSheet.create({
     borderRadius: 20, gap: 8,
   },
   actionBadgeIcon: { fontSize: 18 },
-  actionBadgeText: { fontSize: 14, fontWeight: 'bold', color: '#1F2A1F' },
+  actionBadgeText: { fontSize: 15, fontWeight: '800', color: '#14532D' },
   actionBadgePoints: {
-    fontSize: 13, color: '#006e09', fontWeight: 'bold',
-    backgroundColor: 'rgba(0,110,9,0.1)', paddingHorizontal: 8,
-    paddingVertical: 2, borderRadius: 10,
+    fontSize: 13, color: '#14532D', fontWeight: '900',
+    backgroundColor: 'rgba(74,222,128,0.2)', paddingHorizontal: 10,
+    paddingVertical: 4, borderRadius: 12,
   },
   bottomContent: { width: '100%', alignItems: 'center', marginTop: 32 },
   progressContainer: { alignItems: 'center', marginBottom: 20 },
-  progressLabel: { fontSize: 13, color: '#68756B', marginTop: 10 },
+  progressLabel: { fontSize: 14, color: '#166534', marginTop: 10, fontWeight: '600' },
   confidenceBar: { width: '100%', marginBottom: 16 },
-  confidenceLabel: { fontSize: 13, fontWeight: 'bold', color: '#68756B', marginBottom: 6 },
+  confidenceLabel: { fontSize: 13, fontWeight: '800', color: '#166534', marginBottom: 6 },
   confidenceTrack: {
     width: '100%', height: 8, backgroundColor: '#EEF2EA',
     borderRadius: 4, overflow: 'hidden',
   },
   confidenceFill: { height: '100%', borderRadius: 4 },
   tipCard: {
-    backgroundColor: '#EEF2EA', borderRadius: 16, padding: 16,
-    width: '100%', borderWidth: 1, borderColor: 'rgba(216, 225, 211, 0.5)',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)', borderRadius: 20, padding: 20,
+    width: '100%', borderWidth: 1.5, borderColor: 'rgba(255,255,255,1)',
   },
   tipHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8,
   },
   tipIcon: { fontSize: 18, marginRight: 6 },
-  tipLabel: { fontSize: 12, fontWeight: 'bold', color: '#68756B', letterSpacing: 1 },
-  tipText: { fontSize: 14, color: '#68756B', textAlign: 'center', lineHeight: 20 },
+  tipLabel: { fontSize: 13, fontWeight: '900', color: '#14532D', letterSpacing: 1 },
+  tipText: { fontSize: 15, color: '#166534', textAlign: 'center', lineHeight: 22, fontWeight: '500' },
+  nextButton: {
+    marginTop: 20,
+    backgroundColor: '#14532D',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 24,
+    alignSelf: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0px 4px 12px rgba(20, 83, 45, 0.3)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+    }),
+  },
+  nextButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  }
 });

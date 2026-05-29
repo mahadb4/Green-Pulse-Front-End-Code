@@ -5,7 +5,6 @@ import {
     StyleSheet,
     Image,
     TouchableOpacity,
-    SafeAreaView,
     StatusBar,
     ActivityIndicator,
     Alert,
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CameraScreen({ navigation }: any) {
     const [permission, requestPermission] = useCameraPermissions();
@@ -27,18 +27,30 @@ export default function CameraScreen({ navigation }: any) {
     const videoRef = useRef<any>(null);
     const canvasRef = useRef<any>(null);
 
-    // Subtle pulse animation for the shutter button
+    const insets = useSafeAreaInsets();
+
+    // Animations
     const pulseAnim = useRef(new Animated.Value(1)).current;
+    const scannerAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         if (Platform.OS === 'web') {
             setupWebCamera();
         }
-        // Start subtle pulse loop on shutter
+        
+        // Shutter pulse loop
         Animated.loop(
             Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-                Animated.timing(pulseAnim, { toValue: 1.0,  duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true, easing: Easing.ease }),
+                Animated.timing(pulseAnim, { toValue: 1.0,  duration: 1000, useNativeDriver: true, easing: Easing.ease }),
+            ])
+        ).start();
+
+        // AI Scanner line loop
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(scannerAnim, { toValue: 1, duration: 2500, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
+                Animated.timing(scannerAnim, { toValue: 0, duration: 2500, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
             ])
         ).start();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -158,8 +170,8 @@ export default function CameraScreen({ navigation }: any) {
         if (!permission.granted) {
             return (
                 <View style={styles.permissionContainer}>
-                    <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-                    <SafeAreaView style={styles.permissionSafeArea}>
+                    <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
+                    <View style={[styles.permissionSafeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
                         <TouchableOpacity style={styles.permCloseButton} onPress={handleClose}>
                             <Text style={styles.permCloseText}>✕</Text>
                         </TouchableOpacity>
@@ -192,7 +204,7 @@ export default function CameraScreen({ navigation }: any) {
                                 )}
                             </TouchableOpacity>
                         </View>
-                    </SafeAreaView>
+                    </View>
                 </View>
             );
         }
@@ -228,18 +240,22 @@ export default function CameraScreen({ navigation }: any) {
             </View>
 
             {/* UI Overlay Layer */}
-            <SafeAreaView style={styles.overlayLayer}>
+            <View style={[styles.overlayLayer, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }]}>
 
                 {/* Top Bar */}
                 <View style={styles.topBar}>
                     <TouchableOpacity style={styles.iconButton} onPress={handleClose}>
                         <Text style={styles.iconText}>✕</Text>
                     </TouchableOpacity>
-                    <View style={styles.topBarRight}>
-                        <TouchableOpacity style={styles.iconButton} onPress={toggleCameraFacing}>
-                            <Text style={styles.iconText}>🔄</Text>
-                        </TouchableOpacity>
+                    
+                    <View style={styles.aiBadgeTop}>
+                        <Text style={styles.aiBadgeDot}>●</Text>
+                        <Text style={styles.aiBadgeText}>ZARA VISION AI</Text>
                     </View>
+
+                    <TouchableOpacity style={styles.iconButton} onPress={toggleCameraFacing}>
+                        <Text style={styles.iconText}>🔄</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Framing Guide */}
@@ -251,17 +267,31 @@ export default function CameraScreen({ navigation }: any) {
                         <View style={[styles.corner, styles.cornerBL]} />
                         <View style={[styles.corner, styles.cornerBR]} />
 
-                        {/* Center Focus Ring */}
-                        <View style={styles.focusRing}>
-                            <View style={styles.focusDot} />
+                        {/* Scanner Line Animation */}
+                        <Animated.View style={[styles.scannerLaser, {
+                            transform: [{
+                                translateY: scannerAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [-140, 140] // Sweeps across the 280px framing box
+                                })
+                            }]
+                        }]} />
+
+                        {/* Center Target */}
+                        <View style={styles.targetCrosshair}>
+                            <View style={styles.targetHorizontal} />
+                            <View style={styles.targetVertical} />
                         </View>
                     </View>
 
-                    {/* Instruction Overlay — text corrected to "Center the object" */}
+                    {/* Instruction Overlay */}
                     <View style={styles.instructionContainer}>
-                        <View style={styles.instructionBox}>
-                            <Text style={styles.instructionTitle}>Center the object</Text>
-                            <Text style={styles.instructionDesc}>Ensure good lighting for identification</Text>
+                        <View style={styles.instructionGlass}>
+                            <Text style={styles.instructionIcon}>🤖</Text>
+                            <View>
+                                <Text style={styles.instructionTitle}>Center the eco-action</Text>
+                                <Text style={styles.instructionDesc}>AI requires clear lighting</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -270,7 +300,7 @@ export default function CameraScreen({ navigation }: any) {
                 <View style={styles.bottomControls}>
                     <View style={styles.controlsRow}>
 
-                        {/* Gallery Button — fully wired */}
+                        {/* Gallery Button */}
                         <TouchableOpacity
                             style={styles.galleryButton}
                             onPress={handlePickGallery}
@@ -293,20 +323,22 @@ export default function CameraScreen({ navigation }: any) {
                             <TouchableOpacity
                                 style={[styles.shutterButton, isCapturing && { opacity: 0.6 }]}
                                 onPress={handleCapture}
-                                activeOpacity={0.7}
+                                activeOpacity={0.8}
                                 disabled={isCapturing}
                             >
                                 {isCapturing ? (
-                                    <ActivityIndicator size="large" color="#FFFFFF" />
+                                    <ActivityIndicator size="large" color="#4ADE80" />
                                 ) : (
-                                    <View style={styles.shutterInner} />
+                                    <View style={styles.shutterInner}>
+                                        <View style={styles.shutterCore} />
+                                    </View>
                                 )}
                             </TouchableOpacity>
                         </Animated.View>
 
-                        {/* Spacer to balance the layout symmetrically */}
+                        {/* Help / Spacer */}
                         <View style={styles.helpButton}>
-                            <Text style={styles.helpIcon}>📷</Text>
+                            <Text style={styles.helpIcon}>🌱</Text>
                         </View>
                     </View>
 
@@ -314,7 +346,7 @@ export default function CameraScreen({ navigation }: any) {
                     <Text style={styles.hintText}>Tap shutter to capture · Tap 🖼️ for gallery</Text>
                 </View>
 
-            </SafeAreaView>
+            </View>
         </View>
     );
 }
@@ -323,7 +355,7 @@ const styles = StyleSheet.create({
     // ── Permission Screen ──
     permissionContainer: {
         flex: 1,
-        backgroundColor: '#171d14',
+        backgroundColor: '#F0FFF4',
     },
     permissionSafeArea: {
         flex: 1,
@@ -334,14 +366,14 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: 'rgba(20, 83, 45, 0.1)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     permCloseText: {
-        color: '#FFFFFF',
+        color: '#14532D',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '900',
     },
     permContent: {
         flex: 1,
@@ -354,7 +386,7 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: 'rgba(56, 173, 50, 0.15)',
+        backgroundColor: 'rgba(74, 222, 128, 0.15)',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 8,
@@ -363,44 +395,50 @@ const styles = StyleSheet.create({
         fontSize: 48,
     },
     permTitle: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#FFFFFF',
+        fontSize: 26,
+        fontWeight: '900',
+        color: '#14532D',
         textAlign: 'center',
+        letterSpacing: -0.5,
     },
     permSubtitle: {
-        fontSize: 15,
-        color: 'rgba(255,255,255,0.65)',
+        fontSize: 16,
+        color: '#166534',
         textAlign: 'center',
-        lineHeight: 22,
+        lineHeight: 24,
         marginBottom: 8,
+        fontWeight: '500',
+        opacity: 0.8,
     },
     permButton: {
         width: '100%',
         paddingVertical: 16,
-        backgroundColor: '#38ad32',
-        borderRadius: 16,
+        backgroundColor: '#14532D',
+        borderRadius: 999,
         alignItems: 'center',
         justifyContent: 'center',
     },
     permButtonSecondary: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'transparent',
         borderWidth: 1.5,
-        borderColor: 'rgba(255,255,255,0.25)',
+        borderColor: '#14532D',
     },
     permButtonText: {
         color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
     permButtonTextSecondary: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
+        color: '#14532D',
+        fontSize: 18,
+        fontWeight: '800',
     },
     permOrText: {
-        color: 'rgba(255,255,255,0.35)',
-        fontSize: 13,
+        color: '#166534',
+        fontSize: 14,
+        fontWeight: '600',
+        opacity: 0.7,
     },
 
     // ── Camera Screen ──
@@ -435,26 +473,42 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 16,
-        backgroundColor: 'rgba(0,0,0,0.2)',
+        paddingHorizontal: 24,
     },
-    topBarRight: {
+    aiBadgeTop: {
         flexDirection: 'row',
-        gap: 12,
+        alignItems: 'center',
+        backgroundColor: 'rgba(20, 83, 45, 0.7)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(74, 222, 128, 0.5)',
+    },
+    aiBadgeDot: {
+        color: '#4ADE80',
+        fontSize: 10,
+        marginRight: 6,
+    },
+    aiBadgeText: {
+        color: '#4ADE80',
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 1,
     },
     iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.82)',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(20, 83, 45, 0.8)', // Dark green
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(74, 222, 128, 0.4)',
     },
     iconText: {
-        fontSize: 17,
-        color: '#171d14',
+        fontSize: 18,
+        color: '#A7F3D0', // Light green
     },
 
     // ── Framing Guide ──
@@ -476,53 +530,77 @@ const styles = StyleSheet.create({
     },
     corner: {
         position: 'absolute',
-        width: 48,
-        height: 48,
-        borderColor: '#38ad32',
+        width: 40,
+        height: 40,
+        borderColor: '#4ADE80',
     },
-    cornerTL: { top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 32 },
-    cornerTR: { top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 32 },
-    cornerBL: { bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 32 },
-    cornerBR: { bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 32 },
-    focusRing: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
+    cornerTL: { top: -2, left: -2, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 32 },
+    cornerTR: { top: -2, right: -2, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 32 },
+    cornerBL: { bottom: -2, left: -2, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 32 },
+    cornerBR: { bottom: -2, right: -2, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 32 },
+    scannerLaser: {
+        position: 'absolute',
+        width: '100%',
+        height: 2,
+        backgroundColor: '#4ADE80',
+        shadowColor: '#4ADE80',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+        elevation: 5,
+        zIndex: 5,
+    },
+    targetCrosshair: {
+        width: 40,
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    focusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.4)',
+    targetHorizontal: {
+        position: 'absolute',
+        width: 40,
+        height: 2,
+        backgroundColor: 'rgba(74, 222, 128, 0.4)',
+    },
+    targetVertical: {
+        position: 'absolute',
+        width: 2,
+        height: 40,
+        backgroundColor: 'rgba(74, 222, 128, 0.4)',
     },
     instructionContainer: {
         marginTop: 40,
-    },
-    instructionBox: {
-        backgroundColor: 'rgba(255,255,255,0.92)',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 16,
+        width: '100%',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 8,
-        elevation: 6,
+    },
+    instructionGlass: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.15)',
+        ...Platform.select({
+            web: { backdropFilter: 'blur(16px)' }
+        })
+    },
+    instructionIcon: {
+        fontSize: 24,
+        marginRight: 12,
     },
     instructionTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#171d14',
-        marginBottom: 3,
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#FFFFFF',
+        marginBottom: 2,
+        letterSpacing: 0.5,
     },
     instructionDesc: {
         fontSize: 13,
-        color: '#68756B',
+        color: '#A7F3D0',
+        fontWeight: '500',
     },
 
     // ── Bottom Controls ──
@@ -542,13 +620,13 @@ const styles = StyleSheet.create({
         maxWidth: 320,
     },
     galleryButton: {
-        width: 52,
-        height: 52,
-        borderRadius: 14,
+        width: 56,
+        height: 56,
+        borderRadius: 20,
         borderWidth: 2,
-        borderColor: '#FFFFFF',
+        borderColor: 'rgba(255,255,255,0.8)',
         overflow: 'hidden',
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -566,33 +644,44 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     shutterButton: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 84,
+        height: 84,
+        borderRadius: 42,
         borderWidth: 4,
-        borderColor: '#FFFFFF',
+        borderColor: 'rgba(74, 222, 128, 0.5)',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        shadowColor: '#38ad32',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.6,
-        shadowRadius: 12,
-        elevation: 8,
+        backgroundColor: 'rgba(0,0,0,0.3)',
     },
     shutterInner: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         backgroundColor: '#FFFFFF',
-    },
-    helpButton: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-        backgroundColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
+        shadowColor: '#4ADE80',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 16,
+        elevation: 8,
+    },
+    shutterCore: {
+        width: 54,
+        height: 54,
+        borderRadius: 27,
+        backgroundColor: '#4ADE80',
+        opacity: 0.2,
+    },
+    helpButton: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
     },
     helpIcon: {
         fontSize: 22,

@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { auth, db } from '../../firebase';
 import {
@@ -172,10 +173,11 @@ export default function AlertsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
 
       {/* Header */}
       <BrandHeader 
+        transparent={true}
         showBackButton={true}
         onBack={() => navigation.goBack()}
       />
@@ -213,38 +215,39 @@ export default function AlertsScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F6F7F2' },
+  container: { flex: 1, backgroundColor: '#F0FFF4' },
   listContent: { padding: 16, paddingBottom: 40 },
   alertCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
+    ...Platform.select({
+      web: { backdropFilter: 'blur(24px)', boxShadow: '0 10px 25px rgba(22,163,74,0.08)' },
+      default: { shadowColor: '#16A34A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+    }),
   },
   alertIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 16,
     flexShrink: 0,
   },
-  alertIcon: { fontSize: 22 },
+  alertIcon: { fontSize: 24 },
   alertBody: { flex: 1 },
-  alertTitle: { fontSize: 15, fontWeight: '700', marginBottom: 3 },
-  alertDesc: { fontSize: 13, color: '#68756B', lineHeight: 18 },
-  alertTime: { fontSize: 11, color: '#9EAD9A', marginTop: 5 },
+  alertTitle: { fontSize: 16, fontWeight: '800', marginBottom: 4, letterSpacing: -0.2 },
+  alertDesc: { fontSize: 14, color: '#166534', lineHeight: 20, fontWeight: '500' },
+  alertTime: { fontSize: 12, color: '#166534', marginTop: 6, opacity: 0.7 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#68756B' },
+  loadingText: { marginTop: 12, fontSize: 15, color: '#166534', fontWeight: '600' },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2A1F', marginBottom: 6 },
-  emptyDesc: { fontSize: 14, color: '#68756B', textAlign: 'center', paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 20, fontWeight: '900', color: '#14532D', marginBottom: 8, letterSpacing: -0.5 },
+  emptyDesc: { fontSize: 15, color: '#166534', textAlign: 'center', paddingHorizontal: 32, opacity: 0.8 },
 });

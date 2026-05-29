@@ -4,13 +4,16 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 // Import Screens
-import SplashScreen from '../screens/onboarding/SplashScreen';
+// SplashScreen intentionally removed — WelcomeScreen is the first screen
 import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
+import LoginScreen from '../screens/onboarding/LoginScreen';
 import NicknameScreen from '../screens/onboarding/NicknameScreen';
+import StudentInfoScreen from '../screens/onboarding/StudentInfoScreen';
 import OtpScreen from '../screens/consent/OtpScreen';
 import VpcGateScreen from '../screens/onboarding/VpcGateScreen';
 import DataReviewScreen from '../screens/consent/DataReviewScreen';
 import ConsentSuccessScreen from '../screens/consent/ConsentSuccessScreen';
+import ZaraIntroScreen from '../screens/onboarding/ZaraIntroScreen';
 
 import GardenScreen from '../screens/main/GardenScreen';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
@@ -82,15 +85,17 @@ function MainTabNavigator() {
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
-      {/* Onboarding Flow */}
-      <Stack.Screen name="Splash" component={SplashScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Welcome">
+      {/* Onboarding Flow — WelcomeScreen is the entry point (no splash) */}
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="StudentInfo" component={StudentInfoScreen} />
       <Stack.Screen name="Nickname" component={NicknameScreen} />
       <Stack.Screen name="VpcGate" component={VpcGateScreen} />
       <Stack.Screen name="Otp" component={OtpScreen} />
       <Stack.Screen name="DataReview" component={DataReviewScreen} />
       <Stack.Screen name="ConsentSuccess" component={ConsentSuccessScreen} />
+      <Stack.Screen name="ZaraIntro" component={ZaraIntroScreen} />
 
       {/* Main Flow (Tabs) */}
       <Stack.Screen name="Main" component={MainTabNavigator} />

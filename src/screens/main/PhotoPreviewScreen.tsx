@@ -73,12 +73,18 @@ export default function PhotoPreviewScreen({ route, navigation }: any) {
       // Step 2: Submit action (calls Cloud Function or local simulation)
       const result = await submitAction(selectedAction, downloadUrl);
 
-      // Step 3: Navigate to Processing screen with action_id to listen for AI result
-      navigation.navigate('Processing', {
-        actionId: result.action_id,
-        actionType: selectedAction,
-        points: ACTION_CONFIGS[selectedAction].points,
-      });
+      // If submission succeeded and we have a real action ID, proceed to processing
+      if (result.success && result.action_id) {
+        navigation.navigate('Processing', {
+          actionId: result.action_id,
+          actionType: selectedAction,
+          points: ACTION_CONFIGS[selectedAction].points,
+        });
+      } else {
+        // Show an error and stay on this screen
+        console.warn('[PhotoPreview] submitAction failed or no action ID:', result.message);
+        Alert.alert('Submission Error', result.message || 'Could not submit action.');
+      }
     } catch (error: any) {
       console.error('[PhotoPreview] handleConfirm error:', error);
       Alert.alert(
@@ -200,11 +206,11 @@ const styles = StyleSheet.create({
   },
   closeIcon: { fontSize: 20, color: '#1F2A1F' },
   bottomCard: {
-    backgroundColor: '#F6F7F2',
+    backgroundColor: 'rgba(240, 255, 244, 0.95)',
     borderTopLeftRadius: 32, borderTopRightRadius: 32,
     maxHeight: '70%',
     ...Platform.select({
-      web: { boxShadow: '0px -8px 30px rgba(0, 0, 0, 0.12)' },
+      web: { backdropFilter: 'blur(20px)', boxShadow: '0px -8px 30px rgba(0, 0, 0, 0.12)' },
       default: {
         shadowColor: '#000', shadowOffset: { width: 0, height: -8 },
         shadowOpacity: 0.12, shadowRadius: 30, elevation: 20,
@@ -216,55 +222,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32,
   },
   textSection: { marginBottom: 20, alignItems: 'center' },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#1F2A1F', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#68756B', textAlign: 'center' },
+  title: { fontSize: 28, fontWeight: '900', color: '#14532D', marginBottom: 8, letterSpacing: -0.5 },
+  subtitle: { fontSize: 16, color: '#166534', textAlign: 'center', fontWeight: '500' },
   actionSelector: { marginBottom: 20 },
   actionSelectorLabel: {
-    fontSize: 11, fontWeight: 'bold', color: '#68756B',
+    fontSize: 12, fontWeight: '800', color: '#166534',
     letterSpacing: 1, marginBottom: 10,
   },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   actionChip: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1.5, borderColor: '#D8E1D3',
-    backgroundColor: '#FFFFFF', gap: 6,
+    borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(255,255,255,1)',
+    backgroundColor: 'rgba(255,255,255,0.85)', gap: 6,
   },
   actionChipSelected: {
-    borderColor: '#006e09', backgroundColor: '#e9f0e1',
+    borderColor: '#14532D', backgroundColor: 'rgba(74, 222, 128, 0.2)',
   },
   actionChipIcon: { fontSize: 16 },
-  actionChipText: { fontSize: 13, color: '#68756B', fontWeight: '600' },
-  actionChipTextSelected: { color: '#006e09' },
+  actionChipText: { fontSize: 13, color: '#166534', fontWeight: '600' },
+  actionChipTextSelected: { color: '#14532D', fontWeight: '800' },
   actionChipPoints: {
-    fontSize: 11, color: '#006e09', fontWeight: 'bold',
-    backgroundColor: 'rgba(0,110,9,0.1)', paddingHorizontal: 6,
+    fontSize: 11, color: '#14532D', fontWeight: '900',
+    backgroundColor: 'rgba(74, 222, 128, 0.4)', paddingHorizontal: 6,
     paddingVertical: 2, borderRadius: 8,
   },
   buttonContainer: { width: '100%', gap: 12 },
   primaryButton: {
     width: '100%', paddingVertical: 16, paddingHorizontal: 24,
-    backgroundColor: '#006e09', borderRadius: 16,
+    backgroundColor: '#14532D', borderRadius: 999, height: 56,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0px 4px 12px rgba(0, 110, 9, 0.3)' },
+      web: { boxShadow: '0 10px 25px rgba(20,83,45,0.3)' },
       default: {
-        shadowColor: '#006e09', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
+        shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
       },
     }),
   },
-  primaryButtonText: { color: '#ffffff', fontSize: 17, fontWeight: 'bold', marginRight: 8 },
+  primaryButtonText: { color: '#ffffff', fontSize: 18, fontWeight: '800', marginRight: 8, letterSpacing: 0.5 },
   buttonIconPrimary: {
-    color: '#94f68b', fontSize: 14, fontWeight: 'bold',
+    color: '#ffffff', fontSize: 14, fontWeight: 'bold',
     backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 8,
     paddingVertical: 3, borderRadius: 10,
   },
   secondaryButton: {
-    width: '100%', paddingVertical: 14, paddingHorizontal: 24,
-    backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#D8E1D3',
-    borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    width: '100%', paddingVertical: 14, paddingHorizontal: 24, height: 56,
+    backgroundColor: 'rgba(255,255,255,0.85)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,1)',
+    borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   },
-  buttonIconSecondary: { color: '#1F2A1F', fontSize: 24, marginRight: 8 },
-  secondaryButtonText: { color: '#1F2A1F', fontSize: 17, fontWeight: 'bold' },
+  buttonIconSecondary: { color: '#14532D', fontSize: 24, marginRight: 8 },
+  secondaryButtonText: { color: '#14532D', fontSize: 17, fontWeight: '800' },
 });

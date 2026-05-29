@@ -8,13 +8,42 @@ import {
   TouchableOpacity, 
   SafeAreaView,
   StatusBar,
-  Platform
+  Platform,
+  Animated,
+  Easing
 } from 'react-native';
 import BrandHeader from '../../components/BrandHeader';
+import { useEffect, useRef } from 'react';
 
 export default function ActionDetailScreen({ navigation }: any) {
   // Mock points for this action (In real app, this would come from a DB/Props)
   const actionPoints = 75;
+
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scannerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true }),
+    ]).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, easing: Easing.ease, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.ease, useNativeDriver: true }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scannerAnim, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(scannerAnim, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   const handleOpenCamera = () => {
     // Navigate to actual Camera screen
@@ -28,9 +57,9 @@ export default function ActionDetailScreen({ navigation }: any) {
       <StatusBar barStyle="dark-content" />
       
       {/* Main Content Container */}
-      <View style={styles.mainContent}>
+      <Animated.View style={[styles.mainContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         {/* Header / Logo */}
-        <BrandHeader style={styles.header} />
+        <BrandHeader style={styles.header} transparent={true} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
@@ -46,8 +75,8 @@ export default function ActionDetailScreen({ navigation }: any) {
           {/* Example Photo Frame */}
           <View style={styles.exampleSection}>
             <View style={styles.exampleHeader}>
-              <Text style={styles.exampleIcon}>📸</Text>
-              <Text style={styles.exampleLabel}>VERIFICATION EXAMPLE</Text>
+              <Text style={styles.exampleIcon}>🤖</Text>
+              <Text style={styles.exampleLabel}>AI VERIFICATION EXAMPLE</Text>
             </View>
             <View style={styles.imageContainer}>
               <Image 
@@ -55,6 +84,14 @@ export default function ActionDetailScreen({ navigation }: any) {
                 style={styles.exampleImage}
                 resizeMode="cover"
               />
+              <Animated.View style={[styles.scannerLine, {
+                transform: [{
+                  translateY: scannerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 200]
+                  })
+                }]
+              }]} />
             </View>
           </View>
 
@@ -104,18 +141,19 @@ export default function ActionDetailScreen({ navigation }: any) {
         </ScrollView>
 
         {/* Sticky Footer CTA */}
-        <View style={styles.footer}>
+        <Animated.View style={[styles.footer, { transform: [{ scale: pulseAnim }] }]}>
           <TouchableOpacity 
             style={styles.primaryButton}
             onPress={handleOpenCamera}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <Text style={styles.buttonIcon}>📷</Text>
-            <Text style={styles.buttonText}>Open Camera</Text>
+            <View style={styles.buttonGlow} />
+            <Text style={styles.buttonIcon}>🤖</Text>
+            <Text style={styles.buttonText}>Open AI Scanner</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -123,16 +161,14 @@ export default function ActionDetailScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#d5dcce', // surface-dim
+    backgroundColor: '#F0FFF4',
   },
   mainContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F0FFF4',
     flex: 1,
   },
   header: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(216, 225, 211, 0.3)',
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -156,26 +192,30 @@ const styles = StyleSheet.create({
     fontSize: 32,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
     maxWidth: 280,
     lineHeight: 24,
+    opacity: 0.8,
   },
   exampleSection: {
-    backgroundColor: '#EEF2EA',
-    borderRadius: 28,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 225, 211, 0.5)',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 32,
+    ...Platform.select({
+      web: { boxShadow: '0 8px 24px rgba(20,83,45,0.05)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 16, elevation: 3 },
+    }),
   },
   exampleHeader: {
     flexDirection: 'row',
@@ -188,9 +228,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   exampleLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#68756B',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#166534',
     letterSpacing: 1,
   },
   imageContainer: {
@@ -199,10 +239,22 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#dee5d6',
+    position: 'relative',
   },
   exampleImage: {
     width: '100%',
     height: '100%',
+  },
+  scannerLine: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 3,
+    backgroundColor: 'rgba(74, 222, 128, 0.8)',
+    shadowColor: '#4ADE80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   tipsSection: {
     paddingHorizontal: 4,
@@ -212,15 +264,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tipsTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    marginBottom: 4,
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#14532D',
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   tipsDivider: {
     width: 32,
     height: 4,
-    backgroundColor: 'rgba(0, 110, 9, 0.2)',
+    backgroundColor: 'rgba(74, 222, 128, 0.4)',
     borderRadius: 2,
   },
   tipsList: {
@@ -229,9 +282,13 @@ const styles = StyleSheet.create({
   tipCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#eff6e7', // surface-container-low
-    borderRadius: 16,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(20,83,45,0.04)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
   },
   tipIconContainer: {
     width: 40,
@@ -250,62 +307,59 @@ const styles = StyleSheet.create({
   },
   tipTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 2,
   },
   tipDesc: {
     fontSize: 14,
-    color: '#68756B',
+    color: '#166534',
+    fontWeight: '500',
+    opacity: 0.9,
   },
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(240, 255, 244, 0.85)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(190, 202, 182, 0.2)',
+    borderTopColor: 'rgba(255,255,255,0.5)',
     ...Platform.select({
       web: {
-        boxShadow: '0px -4px 16px rgba(0, 0, 0, 0.04)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.04,
-        shadowRadius: 16,
-        elevation: 8,
+        backdropFilter: 'blur(20px)',
       },
     }),
   },
   primaryButton: {
-    backgroundColor: '#006e09',
+    backgroundColor: '#14532D',
     flexDirection: 'row',
-    height: 56,
-    borderRadius: 16,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
-      },
+      web: { boxShadow: '0px 8px 24px rgba(20, 83, 45, 0.2)' },
       default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowColor: '#14532D',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 6,
       },
     }),
   },
+  buttonGlow: {
+    display: 'none',
+  },
   buttonIcon: {
-    fontSize: 22,
+    fontSize: 20,
     marginRight: 8,
     color: '#FFFFFF',
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   }
 });

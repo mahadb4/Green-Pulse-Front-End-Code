@@ -26,6 +26,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import BrandHeader from '../../components/BrandHeader';
 import {
@@ -88,7 +90,26 @@ export default function ParentDashboardScreen({ navigation }: any) {
   const uid = auth.currentUser?.uid ?? '';
   const deletionInProgress = useRef(false);
 
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
+    // Entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true })
+    ]).start();
+
+    // Pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, easing: Easing.ease, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.ease, useNativeDriver: true }),
+      ])
+    ).start();
+
     if (!uid) { setLoading(false); return; }
 
     const unsub = listenToChildProfile(uid, (data) => {
@@ -269,7 +290,14 @@ export default function ParentDashboardScreen({ navigation }: any) {
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut(auth) },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut(auth);
+          navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
+        },
+      },
     ]);
   };
 
@@ -302,11 +330,11 @@ export default function ParentDashboardScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
 
       {/* Top App Bar */}
       <BrandHeader
-        style={styles.topAppBar}
+        transparent={true}
         leftContent={
           <TouchableOpacity style={styles.backToGardenBtn} onPress={handleReturnToGarden}>
             <Text style={styles.backIcon}>🏡</Text>
@@ -326,15 +354,16 @@ export default function ParentDashboardScreen({ navigation }: any) {
           <Text style={styles.pageSubtitle}>Monitoring {nickname}'s eco journey.</Text>
         </View>
 
-        <View style={styles.cardsContainer}>
+        <Animated.View style={[styles.cardsContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
 
           {/* Child Summary Card */}
           <View style={styles.card}>
             <View style={styles.cardHeaderTop}>
               <View style={styles.childInfoContainer}>
-                <View style={styles.childAvatar}>
+                <Animated.View style={[styles.childAvatar, { transform: [{ scale: pulseAnim }] }]}>
                   <Text style={{ fontSize: 32 }}>👦</Text>
-                </View>
+                  <View style={styles.avatarGlow} />
+                </Animated.View>
                 <View style={styles.childInfoText}>
                   {isEditing ? (
                     <View>
@@ -408,7 +437,7 @@ export default function ParentDashboardScreen({ navigation }: any) {
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Recent Actions</Text>
-              <Text style={{ fontSize: 20 }}>🛡️</Text>
+              <Text style={{ fontSize: 20 }}>🤖</Text>
             </View>
             <Text style={styles.cardSubtitle}>Latest verified eco-actions.</Text>
 
@@ -472,123 +501,147 @@ export default function ParentDashboardScreen({ navigation }: any) {
             </View>
           </View>
 
-        </View>
+        </Animated.View>
 
         {/* Return to Garden */}
-        <TouchableOpacity style={styles.bottomGardenBtn} onPress={handleReturnToGarden} activeOpacity={0.8}>
-          <Text style={styles.bottomGardenIcon}>🏡</Text>
-          <Text style={styles.bottomGardenText}>Return to Main Garden</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          <TouchableOpacity style={styles.buttonPrimary} onPress={handleReturnToGarden} activeOpacity={0.85}>
+            <View style={styles.buttonGlow} />
+            <Text style={styles.buttonTextPrimary}>Return to Main Garden</Text>
+            <Text style={styles.arrowIcon}>→</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F6F7F2' },
-  loadingContainer: { flex: 1, backgroundColor: '#F6F7F2', alignItems: 'center', justifyContent: 'center' },
-  loadingText: { marginTop: 12, fontSize: 15, color: '#68756B' },
-  topAppBar: {
-    backgroundColor: '#F6F7F2', zIndex: 10,
-  },
+  container: { flex: 1, backgroundColor: '#F0FFF4' },
+  loadingContainer: { flex: 1, backgroundColor: '#F0FFF4', alignItems: 'center', justifyContent: 'center' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#166534', fontWeight: '600' },
   backToGardenBtn: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEF2EA',
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12,
-    borderWidth: 1, borderColor: '#D8E1D3',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.8)',
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,1)',
   },
   backIcon: { fontSize: 16, marginRight: 6 },
-  backText: { fontSize: 14, fontWeight: 'bold', color: '#006e09' },
+  backText: { fontSize: 14, fontWeight: '800', color: '#14532D' },
   appBarIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 60, flexGrow: 1 },
-  pageHeader: { alignItems: 'center', marginTop: 8, marginBottom: 24 },
-  pageTitle: { fontSize: 32, fontWeight: 'bold', color: '#1F2A1F', marginBottom: 4 },
-  pageSubtitle: { fontSize: 16, color: '#68756B', textAlign: 'center' },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 60, flexGrow: 1, zIndex: 10 },
+  pageHeader: { alignItems: 'center', marginTop: 8, marginBottom: 28 },
+  pageTitle: { fontSize: 34, fontWeight: '900', color: '#14532D', marginBottom: 6, letterSpacing: -0.5 },
+  pageSubtitle: { fontSize: 16, color: '#166534', textAlign: 'center', opacity: 0.8 },
   cardsContainer: { gap: 24 },
   card: {
-    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24,
+    backgroundColor: '#FFFFFF', borderRadius: 24, padding: 28,
     ...Platform.select({
-      web: { boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+      web: { boxShadow: '0 8px 24px rgba(20,83,45,0.05)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 16, elevation: 3 },
     }),
   },
   cardHeaderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   childInfoContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
   childAvatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: 'rgba(56, 173, 50, 0.1)', borderWidth: 2,
-    borderColor: 'rgba(56, 173, 50, 0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 16,
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', borderWidth: 2,
+    borderColor: '#4ADE80', alignItems: 'center', justifyContent: 'center', marginRight: 16,
+    position: 'relative',
+  },
+  avatarGlow: {
+    position: 'absolute', top: -10, left: -10, right: -10, bottom: -10,
+    backgroundColor: 'rgba(74, 222, 128, 0.2)', borderRadius: 60, zIndex: -1,
   },
   childInfoText: { justifyContent: 'center', flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  childName: { fontSize: 24, fontWeight: 'bold', color: '#1F2A1F' },
+  childName: { fontSize: 26, fontWeight: '900', color: '#14532D', letterSpacing: -0.5 },
   editInputContainer: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F6F7F2',
-    borderRadius: 12, borderWidth: 1, borderColor: '#D8E1D3',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16, borderWidth: 1.5, borderColor: '#A7F3D0',
     paddingHorizontal: 8, paddingVertical: 4, flex: 1,
   },
-  editInput: { fontSize: 18, fontWeight: 'bold', color: '#1F2A1F', flex: 1, padding: 4 },
-  saveButton: { backgroundColor: '#006e09', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginLeft: 8 },
-  saveButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
-  nameError: { fontSize: 12, color: '#ba1a1a', marginTop: 4 },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  editInput: { fontSize: 18, fontWeight: 'bold', color: '#14532D', flex: 1, padding: 4 },
+  saveButton: { backgroundColor: '#14532D', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, marginLeft: 8 },
+  saveButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  nameError: { fontSize: 12, color: '#ba1a1a', marginTop: 6, marginLeft: 4 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   badge: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEF2EA',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
-    borderWidth: 1, borderColor: '#D8E1D3',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    borderWidth: 1, borderColor: '#A7F3D0',
   },
   badgeIconWarning: { fontSize: 12, marginRight: 4 },
   badgeIconPrimary: { fontSize: 12, marginRight: 4 },
-  badgeText: { fontSize: 11, fontWeight: 'bold', color: '#68756B' },
+  badgeText: { fontSize: 12, fontWeight: '800', color: '#166534' },
   editButton: {
-    padding: 10, borderRadius: 12, backgroundColor: '#E8F5E9',
-    borderWidth: 1, borderColor: '#C8E6C9',
+    padding: 10, borderRadius: 16, backgroundColor: 'rgba(74,222,128,0.1)',
+    borderWidth: 1, borderColor: 'rgba(74,222,128,0.3)',
   },
   statsRow: { flexDirection: 'row', gap: 12 },
   statBox: {
-    flex: 1, backgroundColor: '#EEF2EA', borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: 'rgba(216, 225, 211, 0.5)',
+    flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(20,83,45,0.04)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    }),
   },
-  statLabel: { fontSize: 10, fontWeight: 'bold', color: '#68756B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  statValue: { fontSize: 22, fontWeight: 'bold', color: '#006e09' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardTitle: { fontSize: 22, fontWeight: 'bold', color: '#1F2A1F' },
-  cardSubtitle: { fontSize: 14, color: '#68756B', marginBottom: 16 },
-  emptyState: { alignItems: 'center', paddingVertical: 20 },
-  emptyIcon: { fontSize: 32, marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#68756B', textAlign: 'center' },
+  statLabel: { fontSize: 11, fontWeight: '800', color: '#166534', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue: { fontSize: 24, fontWeight: '900', color: '#14532D' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  cardTitle: { fontSize: 24, fontWeight: '900', color: '#14532D', letterSpacing: -0.5 },
+  cardSubtitle: { fontSize: 15, color: '#166534', marginBottom: 20, opacity: 0.8 },
+  emptyState: { alignItems: 'center', paddingVertical: 24 },
+  emptyIcon: { fontSize: 40, marginBottom: 12 },
+  emptyText: { fontSize: 15, color: '#166534', textAlign: 'center' },
   logsContainer: { width: '100%' },
   logItem: {
-    flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(216, 225, 211, 0.4)',
+    flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(74,222,128,0.2)',
   },
   logIconContainer: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)', borderColor: 'rgba(76, 175, 80, 0.2)',
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 14,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(74, 222, 128, 0.15)', borderColor: 'rgba(74, 222, 128, 0.3)',
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 16,
   },
   logTextContainer: { flex: 1 },
-  logTitle: { fontSize: 15, fontWeight: 'bold', color: '#1F2A1F' },
-  logTime: { fontSize: 12, color: '#68756B', marginTop: 2 },
+  logTitle: { fontSize: 16, fontWeight: '800', color: '#14532D', marginBottom: 4 },
+  logTime: { fontSize: 13, color: '#166534', fontWeight: '500' },
   settingItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
   settingTextContainer: { flex: 1, paddingRight: 16 },
-  settingTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2A1F' },
-  settingDesc: { fontSize: 14, color: '#68756B', marginTop: 2 },
-  divider: { height: 1, backgroundColor: 'rgba(216, 225, 211, 0.6)', marginVertical: 24 },
+  settingTitle: { fontSize: 16, fontWeight: '800', color: '#14532D' },
+  settingDesc: { fontSize: 14, color: '#166534', marginTop: 4, opacity: 0.8 },
+  divider: { height: 1, backgroundColor: 'rgba(74,222,128,0.2)', marginVertical: 24 },
   dangerZone: { width: '100%' },
-  dangerTitle: { fontSize: 16, fontWeight: 'bold', color: '#E35D5D', marginBottom: 4 },
-  dangerDesc: { fontSize: 14, color: '#68756B', marginBottom: 20 },
+  dangerTitle: { fontSize: 16, fontWeight: '800', color: '#DC2626', marginBottom: 6 },
+  dangerDesc: { fontSize: 14, color: '#166534', marginBottom: 24, opacity: 0.8 },
   deleteButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255, 218, 214, 0.3)', paddingVertical: 14, borderRadius: 16,
-    borderWidth: 1, borderColor: 'rgba(186, 26, 26, 0.2)',
+    backgroundColor: 'rgba(220, 38, 38, 0.05)', paddingVertical: 16, borderRadius: 20,
+    borderWidth: 1, borderColor: 'rgba(220, 38, 38, 0.2)',
   },
-  deleteButtonIcon: { fontSize: 18, marginRight: 8 },
-  deleteButtonText: { fontSize: 16, fontWeight: 'bold', color: '#ba1a1a' },
-  bottomGardenBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#006e09',
-    paddingVertical: 16, borderRadius: 20, marginTop: 24, marginBottom: 20,
+  deleteButtonIcon: { fontSize: 18, marginRight: 10 },
+  deleteButtonText: { fontSize: 16, fontWeight: '800', color: '#991B1B' },
+  buttonPrimary: {
+    backgroundColor: '#14532D',
+    flexDirection: 'row',
+    width: '100%',
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    marginBottom: 20,
+    ...Platform.select({
+      web: { boxShadow: '0px 8px 24px rgba(20, 83, 45, 0.2)' },
+      default: {
+        shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2, shadowRadius: 16, elevation: 6,
+      },
+    }),
   },
-  bottomGardenIcon: { fontSize: 20, marginRight: 12 },
-  bottomGardenText: { fontSize: 16, fontWeight: 'bold', color: '#006e09' },
+  buttonGlow: {
+    display: 'none',
+  },
+  buttonTextPrimary: { color: '#ffffff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5, marginRight: 8, zIndex: 2 },
+  arrowIcon: { color: '#4ADE80', fontSize: 20, fontWeight: '900', zIndex: 2 },
 });

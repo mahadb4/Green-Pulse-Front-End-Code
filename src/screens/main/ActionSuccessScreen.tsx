@@ -8,10 +8,13 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  ScrollView
+  ScrollView,
+  Animated,
+  Easing
 } from 'react-native';
 import { ACTION_CONFIGS, ActionType } from '../../services/actionService';
 import BrandHeader from '../../components/BrandHeader';
+import { useEffect, useRef } from 'react';
 
 export default function ActionSuccessScreen({ navigation, route }: any) {
   const { points = 10, actionType, confidence, detectedLabel } = route.params || {};
@@ -26,39 +29,50 @@ export default function ActionSuccessScreen({ navigation, route }: any) {
     ? ACTION_CONFIGS[actionType as ActionType] 
     : null;
 
+  // Animations
+  const bounceAnim = useRef(new Animated.Value(0.5)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(bounceAnim, { toValue: 1, friction: 4, tension: 50, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true })
+    ]).start();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
       
       {/* Ambient Background Elements */}
       <View style={styles.ambientTopLeft} />
       <View style={styles.ambientBottomRight} />
       <View style={styles.ambientCenter} />
 
-      <BrandHeader />
+      <BrandHeader transparent={true} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.innerContent}>
 
           {/* Mascot Hero Image */}
-          <View style={styles.mascotContainer}>
+          <Animated.View style={[styles.mascotContainer, { opacity: fadeAnim, transform: [{ scale: bounceAnim }] }]}>
             <Image 
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBl-dUCgnqlobtpjbLw9AMT_QYJbplMOW_xrlObp9FhKeR6OynLnIIeSaWod4h7_Omk6pExhJTvU0lC8lbzjjPk0nKgxRfewfbNJKRtQeYom2GZ35AH1kKw3G5hwhH5CMlyr72XjXyWZay_qj2vdGGnT3iUejHi9ygKVYhEJH4snOLeggBIG01bZcxi-mJilhwS7WHGQavTK4kjXzsaKGGAQ8LqksSD7EyGuZ9YJY9T2yDR50hcplg3L8lC8P__BAdnjH_LcQ4djH0' }}
               style={styles.mascotImage}
               resizeMode="cover"
             />
-          </View>
+          </Animated.View>
 
           {/* Text Content */}
-          <View style={styles.textSection}>
+          <Animated.View style={[styles.textSection, { opacity: fadeAnim }]}>
             <Text style={styles.title}>Awesome Job! 🎉</Text>
             <Text style={styles.subtitle}>
               Your eco-action has been verified! Your garden is thriving thanks to you.
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Reward Card */}
-          <View style={styles.rewardCard}>
+          <Animated.View style={[styles.rewardCard, { opacity: fadeAnim, transform: [{ scale: bounceAnim }] }]}>
             <Text style={styles.rewardLabel}>REWARD UNLOCKED</Text>
             
             <View style={styles.pointsContainer}>
@@ -90,17 +104,19 @@ export default function ActionSuccessScreen({ navigation, route }: any) {
                 <Text style={styles.detectedLabel}>AI detected: {detectedLabel}</Text>
               </View>
             )}
-          </View>
+          </Animated.View>
 
           {/* CTA Action */}
-          <TouchableOpacity 
-            style={styles.primaryButton}
-            onPress={handleReturn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.primaryButtonText}>Return to Garden</Text>
-            <Text style={styles.buttonIconPrimary}>➔</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ width: '100%', opacity: fadeAnim }}>
+            <TouchableOpacity 
+              style={styles.primaryButton}
+              onPress={handleReturn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.primaryButtonText}>Return to Garden</Text>
+              <Text style={styles.buttonIconPrimary}>➔</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -110,7 +126,7 @@ export default function ActionSuccessScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   ambientTopLeft: {
     position: 'absolute',
@@ -140,7 +156,7 @@ const styles = StyleSheet.create({
     marginTop: -192,
     width: 384,
     height: 384,
-    backgroundColor: '#f5fced',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
     opacity: 0.4,
     borderRadius: 192,
   },
@@ -186,45 +202,39 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#006e09',
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 8,
     lineHeight: 40,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
     maxWidth: 320,
     lineHeight: 24,
+    opacity: 0.8,
   },
   rewardCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 32,
     padding: 24,
     alignItems: 'center',
     marginBottom: 16,
     ...Platform.select({
-      web: {
-        boxShadow: '0px 8px 30px rgba(0, 0, 0, 0.04)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.04,
-        shadowRadius: 30,
-        elevation: 4,
-      },
+      web: { backdropFilter: 'blur(24px)', boxShadow: '0 20px 40px rgba(22,163,74,0.1)' },
+      default: { shadowColor: '#16A34A', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
     }),
-    borderWidth: 1,
-    borderColor: 'rgba(216, 225, 211, 0.3)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
   },
   rewardLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#68756B',
+    fontWeight: '800',
+    color: '#166534',
     letterSpacing: 2,
     marginBottom: 16,
   },
@@ -241,14 +251,14 @@ const styles = StyleSheet.create({
   },
   pointsValue: {
     fontSize: 56,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '900',
+    color: '#14532D',
     lineHeight: 64,
   },
   pointsText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '800',
+    color: '#14532D',
     marginTop: 8,
   },
   divider: {
@@ -271,23 +281,24 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#e9f0e1',
+    backgroundColor: 'rgba(74, 222, 128, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
   boostIcon: {
     fontSize: 24,
-    color: '#006e09',
+    color: '#14532D',
   },
   boostLabel: {
     fontSize: 14,
-    color: '#68756B',
+    color: '#166534',
+    fontWeight: '500',
   },
   boostValue: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '800',
+    color: '#14532D',
   },
   trendingIcon: {
     fontSize: 28,
@@ -295,12 +306,12 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#006e09',
+    fontWeight: '900',
+    color: '#14532D',
   },
   detectedContainer: {
     marginTop: 12,
-    backgroundColor: '#EEF2EA',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -308,40 +319,43 @@ const styles = StyleSheet.create({
   },
   detectedLabel: {
     fontSize: 13,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
+    fontWeight: '500',
   },
   primaryButton: {
     width: '100%',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#006e09',
-    borderRadius: 30, // fully rounded pill
+    backgroundColor: '#14532D',
+    borderRadius: 999, // fully rounded pill
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    height: 56,
     ...Platform.select({
       web: {
-        boxShadow: '0px 4px 14px rgba(0, 110, 9, 0.4)',
+        boxShadow: '0 10px 25px rgba(20,83,45,0.3)',
       },
       default: {
-        shadowColor: '#006e09',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 14,
+        shadowColor: '#14532D',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
         elevation: 8,
       },
     }),
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
     marginRight: 8,
+    letterSpacing: 0.5,
   },
   buttonIconPrimary: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   }
 });

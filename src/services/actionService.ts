@@ -1,7 +1,5 @@
-/**
- * actionService.ts
- * Handles photo upload to Firebase Storage and calling the submitAction Cloud Function.
- */
+// actionService.ts
+// Handles photo upload to Firebase Storage and calling the submitAction Cloud Function.
 
 import { auth, db } from '../firebase';
 import {
@@ -11,6 +9,7 @@ import {
   serverTimestamp,
   collection,
   addDoc,
+  getDoc,
 } from 'firebase/firestore';
 import {
   getFunctions,
@@ -54,12 +53,12 @@ export interface ActionConfig {
 // ─── Action Config ────────────────────────────────────────────────────────────
 
 export const ACTION_CONFIGS: Record<ActionType, ActionConfig> = {
-  recycle_bottle:  { label: 'Recycle Bottle',   icon: '♻️',  points: 10, description: 'Place a plastic bottle in/near a recycling bin' },
-  plant_seed:      { label: 'Plant a Seed',      icon: '🌱',  points: 20, description: 'Plant a freshly planted seed or sapling in soil' },
-  water_plant:     { label: 'Water a Plant',     icon: '💧',  points: 6,  description: 'Water a plant using a can, bottle, or hose' },
-  pick_litter:     { label: 'Pick Up Litter',    icon: '🗑️',  points: 15, description: 'Before/after litter pickup photo' },
-  compost_waste:   { label: 'Compost Waste',     icon: '🌿',  points: 18, description: 'Put food scraps into a compost bin' },
-  turn_off_light:  { label: 'Turn Off Light',    icon: '💡',  points: 5,  description: 'Show a light switch in OFF position in an unlit room' },
+  recycle_bottle: { label: 'Recycle Bottle', icon: '♻️', points: 10, description: 'Place a plastic bottle in/near a recycling bin' },
+  plant_seed: { label: 'Plant a Seed', icon: '🌱', points: 20, description: 'Plant a freshly planted seed or sapling in soil' },
+  water_plant: { label: 'Water a Plant', icon: '💧', points: 6, description: 'Water a plant using a can, bottle, or hose' },
+  pick_litter: { label: 'Pick Up Litter', icon: '🗑️', points: 15, description: 'Before/after litter pickup photo' },
+  compost_waste: { label: 'Compost Waste', icon: '🌿', points: 18, description: 'Put food scraps into a compost bin' },
+  turn_off_light: { label: 'Turn Off Light', icon: '💡', points: 5, description: 'Show a light switch in OFF position in an unlit room' },
 };
 
 // ─── Firebase Setup ───────────────────────────────────────────────────────────
@@ -137,23 +136,49 @@ export async function uploadActionPhoto(photoUri: string): Promise<string> {
 export async function submitAction(
   actionType: ActionType,
   photoUrl: string,
-  gardenId: string = 'garden_karachi_01'
+  gardenId?: string
 ): Promise<SubmitActionResult> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error('User not authenticated');
+  // Ensure we have an authenticated user before proceeding
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    console.warn('[actionService] submitAction blocked: no authenticated user');
+    return { success: false, action_id: '', message: 'User not authenticated' };
+  }
+
+  // Force refresh the ID token to ensure the Cloud Function receives a fresh token
+  try {
+    await currentUser.getIdToken(true);
+  } catch (tokenErr) {
+    console.warn('[actionService] Failed to refresh ID token:', tokenErr);
+  }
+
+  const uid = currentUser.uid;
+
+  // Resolve the garden ID: use provided gardenId or fetch from child's document
+  let resolvedGardenId: string | undefined = gardenId;
+  if (!resolvedGardenId) {
+    const childSnap = await getDoc(doc(db, 'children', uid));
+    resolvedGardenId = childSnap.data()?.garden_id;
+  }
+  if (!resolvedGardenId) throw new Error('Garden ID not found');
 
   try {
     // Try calling the deployed Cloud Function first (10s timeout)
     const functions = getFunctionsInstance();
-    const submitActionFn = httpsCallable<
-      { action_type: string; photo_url: string; garden_id: string },
-      SubmitActionResult
-    >(functions, 'submitAction');
+    const submitActionFn = httpsCallable(functions, 'submitAction');
+
+    // Log details before calling the Cloud Function
+    console.log('[actionService] Calling Cloud Function', {
+      uid: currentUser.uid,
+      hasEmail: !!currentUser.email,
+      functionName: 'submitAction',
+      region: 'us-central1',
+    });
 
     const callPromise = submitActionFn({
       action_type: actionType,
       photo_url: photoUrl,
-      garden_id: gardenId,
+      garden_id: resolvedGardenId,
     });
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Cloud Function call timed out after 10s')), 10000)
@@ -163,9 +188,14 @@ export async function submitAction(
     console.log('[actionService] submitAction Cloud Function result:', result.data);
     return result.data;
   } catch (cloudFnError: any) {
-    console.warn('[actionService] Cloud Function call failed, falling back:', cloudFnError?.message);
+    console.warn('[actionService] Cloud Function call failed, falling back:', {
+      code: cloudFnError?.code,
+      message: cloudFnError?.message,
+      details: cloudFnError?.details,
+      uid: currentUser?.uid,
+    });
     console.warn('[actionService] Cloud Function unavailable. CV validation cannot run client-side.');
-    return await submitActionWithRejection(actionType, photoUrl, gardenId, uid);
+    return await submitActionWithRejection(actionType, photoUrl, resolvedGardenId, uid);
   }
 }
 
@@ -178,88 +208,77 @@ export async function submitAction(
 async function submitActionWithRejection(
   actionType: ActionType,
   photoUrl: string,
-  gardenId: string,
+  resolvedGardenId: string,
   uid: string
 ): Promise<SubmitActionResult> {
   const { db } = await import('../firebase');
   const actionRef = doc(collection(db, 'actions'));
-  const syntheticId = actionRef.id;
 
   // Helper: race a promise against a timeout so Firestore hangs never block the UI
   const withTimeout = <T>(p: Promise<T>, ms: number, label: string): Promise<T> =>
     Promise.race([
       p,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
-      ),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
     ]);
 
   try {
-    // Step 1: create as 'pending'
+    // Step 1: create as 'pending' – real Firestore document
+    console.log('[actionService] Fallback creating real action document');
     await withTimeout(
       setDoc(actionRef, {
         child_uid: uid,
-        garden_id: gardenId,
+        garden_id: resolvedGardenId,
         action_type: actionType,
         status: 'pending',
         confidence: 0,
-        detected_label: 'AI verification service unavailable',
+        detected_label: null,
         photo_url: photoUrl,
         created_at: serverTimestamp(),
       }),
       5000,
       'setDoc(pending)'
     );
+    console.log('[actionService] Fallback action document created, id:', actionRef.id);
 
-    // Step 2: mark as 'rejected'
+    // Step 2: mark as 'rejected' with reason
     await withTimeout(
       updateDoc(actionRef, {
         status: 'rejected',
+        rejection_reason: 'Cloud Function unavailable',
         processed_at: serverTimestamp(),
       }),
       5000,
       'updateDoc(rejected)'
     );
-
-    console.warn(
-      '[actionService] Action rejected (fallback): CV Cloud Function was unreachable.',
-      { actionId: syntheticId, actionType }
-    );
+    console.log('[actionService] Fallback action rejected');
   } catch (fsErr: any) {
-    // Firestore is offline — return immediately with a synthetic ID.
-    // The ProcessingScreen will hit the 30s safety timer and show ActionRetry.
-    console.warn(
-      '[actionService] Firestore unreachable in fallback path, returning synthetic ID:',
-      fsErr?.message
-    );
-    return {
-      success: false,
-      action_id: syntheticId,
-      message: 'Verification service is currently unavailable. Please try again later.',
-    };
+    // Firestore is offline — return failure without a fake ID
+    console.warn('[actionService] Firestore unreachable in fallback path:', fsErr?.message);
+    return { success: false, action_id: '', message: 'Verification service is currently unavailable. Please try again later.' };
   }
 
-  return {
-    success: false,
-    action_id: syntheticId,
-    message: 'Verification service is currently unavailable. Please try again later.',
-  };
+  // Return the real action ID even though the verification failed
+  return { success: false, action_id: actionRef.id, message: 'Verification service is currently unavailable. Please try again later.' };
 }
 
 // ─── Simulation Helpers ───────────────────────────────────────────────────────
 
 const POINTS_MAP: Record<ActionType, number> = {
-  recycle_bottle: 10, plant_seed: 20, water_plant: 6,
-  pick_litter: 15, compost_waste: 18, turn_off_light: 5,
+  recycle_bottle: 10,
+  plant_seed: 20,
+  water_plant: 6,
+  pick_litter: 15,
+  compost_waste: 18,
+  turn_off_light: 5,
 };
 
 const GARDEN_DELTAS: Record<ActionType, { health: number; water: number; nutrient: number }> = {
-  recycle_bottle: { health: 0,  water: 0, nutrient: 5  },
-  plant_seed:     { health: 10, water: 0, nutrient: 0  },
-  water_plant:    { health: 0,  water: 8, nutrient: 0  },
-  pick_litter:    { health: 8,  water: 0, nutrient: 0  },
-  compost_waste:  { health: 0,  water: 0, nutrient: 10 },
-  turn_off_light: { health: 3,  water: 0, nutrient: 0  },
+  recycle_bottle: { health: 0, water: 0, nutrient: 5 },
+  plant_seed: { health: 10, water: 0, nutrient: 0 },
+  water_plant: { health: 0, water: 8, nutrient: 0 },
+  pick_litter: { health: 8, water: 0, nutrient: 0 },
+  compost_waste: { health: 0, water: 0, nutrient: 10 },
+  turn_off_light: { health: 3, water: 0, nutrient: 0 },
 };
 
 function getGardenStage(health: number): string {

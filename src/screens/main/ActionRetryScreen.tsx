@@ -7,12 +7,26 @@ import {
   TouchableOpacity, 
   SafeAreaView,
   StatusBar,
-  Platform
+  Platform,
+  Animated,
+  Easing
 } from 'react-native';
 import BrandHeader from '../../components/BrandHeader';
+import { useEffect, useRef } from 'react';
 
 export default function ActionRetryScreen({ navigation, route }: any) {
   const { reason = 'Action not clearly visible', confidence } = route.params || {};
+
+  // Animations
+  const bounceAnim = useRef(new Animated.Value(0.5)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(bounceAnim, { toValue: 1, friction: 4, tension: 50, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true })
+    ]).start();
+  }, []);
 
   const handleTryAgain = () => {
     if (navigation && navigation.navigate) {
@@ -28,17 +42,17 @@ export default function ActionRetryScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
       
       {/* Brand Header */}
-      <BrandHeader />
+      <BrandHeader transparent={true} />
 
       <View style={styles.contentWrapper}>
         {/* Main Card Container */}
         <View style={styles.mainCard}>
           
           {/* Illustration */}
-          <View style={styles.mascotContainer}>
+          <Animated.View style={[styles.mascotContainer, { opacity: fadeAnim, transform: [{ scale: bounceAnim }] }]}>
             <View style={styles.glowEffect} />
             <Image 
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA7fRaphkEV5-cbpjNjIQlPCwHWA0Ch1MrjftoBLOZvHtLSNf-JPdYSFfw-NyKofOH52HxJ5dYyd0FfVBuzJc3ZdNOw-M9TZ8Do2bTbghUasWfFJYKGCtyE5CJOu1wLnNW861RUzkIZkDj_7cnEukDIb7UH5MR755WOklVlhqfumFpZawHRIY7ZqbVTbM8fswhYSU_wf6RQ5D-2cpoUAlsKDWgQSssHVaW_ZXrU8C6nx6GGKw5FddsZffziOPq2TVPs1tLdSu4PaEE' }}
@@ -48,10 +62,10 @@ export default function ActionRetryScreen({ navigation, route }: any) {
             <View style={styles.errorIconContainer}>
               <Text style={styles.errorIcon}>⚠️</Text>
             </View>
-          </View>
+          </Animated.View>
 
           {/* Text Content */}
-          <View style={styles.textSection}>
+          <Animated.View style={[styles.textSection, { opacity: fadeAnim }]}>
             <Text style={styles.title}>Oops! Let's try again.</Text>
             <Text style={styles.subtitle}>{reason}</Text>
             {confidence !== undefined && (
@@ -59,10 +73,10 @@ export default function ActionRetryScreen({ navigation, route }: any) {
                 AI confidence: {Math.round(confidence * 100)}% (need 80%+)
               </Text>
             )}
-          </View>
+          </Animated.View>
 
           {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
+          <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
             <TouchableOpacity 
               style={styles.primaryButton}
               onPress={handleTryAgain}
@@ -79,7 +93,7 @@ export default function ActionRetryScreen({ navigation, route }: any) {
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
           
         </View>
       </View>
@@ -91,7 +105,7 @@ export default function ActionRetryScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   contentWrapper: {
     flex: 1,
@@ -103,23 +117,17 @@ const styles = StyleSheet.create({
   mainCard: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 32,
     paddingTop: 48,
     paddingBottom: 32,
     paddingHorizontal: 32,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 16px 48px rgba(0, 110, 9, 0.08)',
-      },
-      default: {
-        shadowColor: '#006e09',
-        shadowOffset: { width: 0, height: 16 },
-        shadowOpacity: 0.08,
-        shadowRadius: 48,
-        elevation: 10,
-      },
+      web: { backdropFilter: 'blur(24px)', boxShadow: '0 20px 40px rgba(22,163,74,0.1)' },
+      default: { shadowColor: '#16A34A', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
     }),
   },
   mascotContainer: {
@@ -190,16 +198,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 16,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 18,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
+    fontWeight: '500',
   },
   confidenceText: {
     fontSize: 13,
@@ -214,23 +224,24 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    paddingVertical: 20,
+    paddingVertical: 16,
     paddingHorizontal: 32,
-    backgroundColor: '#38ad32', // primary-container
+    backgroundColor: '#14532D', // primary-container
     borderRadius: 999, // full pill
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    height: 56,
     ...Platform.select({
       web: {
-        boxShadow: '0px 4px 12px rgba(56, 173, 50, 0.15)',
+        boxShadow: '0 10px 25px rgba(20,83,45,0.3)',
       },
       default: {
-        shadowColor: '#38ad32',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 4,
+        shadowColor: '#14532D',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
       },
     }),
     marginBottom: 8,
@@ -243,8 +254,9 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   cancelButton: {
     width: '100%',
@@ -256,8 +268,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButtonText: {
-    color: '#68756B',
+    color: '#166534',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
   }
 });

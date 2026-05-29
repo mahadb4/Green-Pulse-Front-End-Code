@@ -1,4 +1,0 @@
-{"_e":"root:init","_t":1779637631830,"format":"v0-jsonl","version":"56.1.11"}
-{"_e":"env:mode","_t":1779637631833,"nodeEnv":"development","babelEnv":"development","mode":"development"}
-{"_e":"env:load","_t":1779637631843,"mode":"development","files":[],"env":{}}
-{"_e":"devserver:start","_t":1779637632805,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}

@@ -17,8 +17,9 @@ import { auth, db } from '../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { approveChild } from '../../services/gardenService';
 import BrandHeader from '../../components/BrandHeader';
+import AnimatedBackground from '../../components/AnimatedBackground';
 
-export default function OtpScreen({ navigation }: any) {
+export default function OtpScreen({ navigation, route }: any) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -118,7 +119,7 @@ export default function OtpScreen({ navigation }: any) {
     }
 
     // Always navigate forward
-    navigation?.navigate('ConsentSuccess');
+    navigation?.navigate('ConsentSuccess', { nickname: route?.params?.nickname });
   };
 
   const handleBack = () => {
@@ -130,6 +131,8 @@ export default function OtpScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <AnimatedBackground />
+
       <KeyboardAvoidingView
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -137,16 +140,13 @@ export default function OtpScreen({ navigation }: any) {
         <TouchableWithoutFeedback onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
             {/* Header */}
-            <BrandHeader showBackButton onBack={handleBack} />
+            <BrandHeader transparent={true} showBackButton onBack={handleBack} />
 
             <View style={styles.innerContainer}>
               <View style={styles.mainContent}>
-              {/* Decorative Background Elements */}
-              <View style={styles.bgBlobTop} />
-              <View style={styles.bgBlobBottom} />
 
               {/* Verification Card */}
-              <View style={styles.card}>
+              <View style={styles.glassCard}>
                 <View style={styles.iconCircle}>
                   <Text style={styles.securityIcon}>🛡️</Text>
                 </View>
@@ -171,9 +171,9 @@ export default function OtpScreen({ navigation }: any) {
                       key={index}
                       ref={(ref) => { inputs.current[index] = ref; }}
                       style={[
-                        styles.otpInput,
-                        error && styles.otpInputError,
-                        digit ? styles.otpInputFilled : null
+                         styles.otpInput,
+                         error && styles.otpInputError,
+                         digit ? styles.otpInputFilled : null
                       ]}
                       keyboardType="number-pad"
                       maxLength={1}
@@ -186,21 +186,22 @@ export default function OtpScreen({ navigation }: any) {
 
                 {/* Primary CTA */}
                 <TouchableOpacity
-                  style={[styles.verifyButton, loading && { opacity: 0.6 }]}
+                  style={[styles.buttonPrimary, loading && { opacity: 0.8 }]}
                   onPress={handleVerify}
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                   disabled={loading}
                 >
                   {loading ? (
                     <ActivityIndicator color="#ffffff" />
                   ) : (
                     <>
-                      <Text style={styles.verifyButtonText}>Verify Parent</Text>
+                      <Text style={styles.buttonTextPrimary}>Verify Parent</Text>
                       <Text style={styles.arrowIcon}>→</Text>
                     </>
                   )}
                 </TouchableOpacity>
 
+              </View>
               </View>
             </View>
 
@@ -214,109 +215,94 @@ export default function OtpScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   keyboardAvoidingView: {
     flex: 1,
   },
   innerContainer: {
     flex: 1,
-  },
-  innerContainer: {
-    flex: 1,
+    paddingHorizontal: 20,
+    zIndex: 10,
   },
   mainContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  bgBlobTop: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 300,
-    height: 300,
-    backgroundColor: '#38ad32',
-    borderRadius: 150,
-    opacity: 0.05,
-  },
-  bgBlobBottom: {
-    position: 'absolute',
-    bottom: -100,
-    left: -100,
-    width: 400,
-    height: 400,
-    backgroundColor: '#94f68b',
-    borderRadius: 200,
-    opacity: 0.05,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
+  glassCard: {
     width: '100%',
     maxWidth: 440,
-    borderRadius: 24,
-    padding: 24,
-    paddingVertical: 32,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    padding: 32,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
     alignItems: 'center',
-    shadowColor: '#2F8F2A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 5,
-    zIndex: 10,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(24px)',
+        boxShadow: '0 20px 40px rgba(22,163,74,0.15)',
+      },
+      default: {
+        shadowColor: '#16A34A',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+      },
+    }),
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#EEF2EA',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(74,222,128,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: '#2F8F2A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
+    marginBottom: 20,
   },
   securityIcon: {
-    fontSize: 32,
+    fontSize: 44,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    marginBottom: 8,
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#14532D',
+    marginBottom: 12,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#68756B',
+    fontSize: 15,
+    color: '#166534',
+    opacity: 0.8,
     textAlign: 'center',
     marginBottom: 32,
-    paddingHorizontal: 16,
-    lineHeight: 24,
+    paddingHorizontal: 8,
+    lineHeight: 23,
   },
   errorContainer: {
     width: '100%',
-    backgroundColor: '#ffdad6',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(186, 26, 26, 0.2)',
+    borderColor: 'rgba(220, 38, 38, 0.3)',
   },
   errorIcon: {
     fontSize: 18,
     marginRight: 8,
   },
   errorText: {
-    color: '#93000a',
+    color: '#991B1B',
     fontSize: 14,
+    fontWeight: '600',
   },
   otpContainer: {
     flexDirection: 'row',
@@ -328,39 +314,45 @@ const styles = StyleSheet.create({
   otpInput: {
     width: 48,
     height: 56,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#D8E1D3',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    borderRadius: 16,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1F2A1F',
     textAlign: 'center',
   },
   otpInputFilled: {
-    borderColor: '#006e09',
+    borderColor: '#14532D',
   },
   otpInputError: {
     borderColor: '#ba1a1a',
   },
-  verifyButton: {
-    width: '100%',
-    backgroundColor: '#38ad32',
+  buttonPrimary: {
+    backgroundColor: '#14532D',
     flexDirection: 'row',
     height: 56,
-    borderRadius: 16,
+    width: '100%',
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2F8F2A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 3,
+    ...Platform.select({
+      web: { boxShadow: '0 10px 25px rgba(20,83,45,0.3)' },
+      default: {
+        shadowColor: '#14532D',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
+      },
+    }),
   },
-  verifyButtonText: {
+  buttonTextPrimary: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
     marginRight: 8,
   },
   arrowIcon: {

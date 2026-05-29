@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,11 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
-import { auth } from '../../firebase';
+import { auth, db } from '../../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   listenToGarden,
   listenToChildProfile,
@@ -33,36 +36,96 @@ const GARDEN_HERO_IMAGES: Record<string, string> = {
 };
 
 export default function GardenScreen({ navigation }: any) {
-  const [garden, setGarden] = useState<GardenData | null>(null);
+  const [garden, setGarden] = useState<GardenData>({
+  garden_health: 0,
+  garden_stage: 'barren',
+  water_level: 0,
+  nutrient_level: 0,
+  action_queue: [],
+  member_count: 0,
+  created_at: null,
+});
   const [child, setChild] = useState<ChildData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Animations
+  const heroScale = useRef(new Animated.Value(0.9)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    const gardenId = 'garden_karachi_01';
+    // Entrance animations
+    Animated.parallel([
+      Animated.spring(heroScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // Ensure garden document exists (best-effort)
-    ensureGardenExists(gardenId).catch(console.warn);
+    // Ambient pulsing for CTA
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, easing: Easing.ease, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, easing: Easing.ease, useNativeDriver: true }),
+      ])
+    ).start();
 
-    // Listen to garden — always sets loading to false on first callback
-    const unsubGarden = listenToGarden(gardenId, (data) => {
-      if (data) setGarden(data);
-      setLoading(false);  // Always stop loading, even if data is null
-    });
-
-    // Listen to child profile
+    // Floating effect for hero badge
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, { toValue: -8, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+    // Fetch the logged‑in user's UID and child document to get the garden ID
     const uid = auth.currentUser?.uid;
-    let unsubChild: (() => void) | null = null;
-    if (uid) {
-      unsubChild = listenToChildProfile(uid, (data) => {
-        setChild(data);
-      });
-    } else {
-      // No user logged in, still stop loading
+    if (!uid) {
+      console.warn('No authenticated user – cannot load garden');
       setLoading(false);
+      return;
     }
 
+    // Async init to fetch child and then set up listeners
+    let unsubGarden: (() => void) | null = null;
+    let unsubChild: (() => void) | null = null;
+    const init = async () => {
+      try {
+        // Get child document to read garden_id
+        const childSnap = await getDoc(doc(db, 'children', uid));
+        const childData = childSnap.exists() ? (childSnap.data() as any) : null;
+        setChild(childData);
+        const gardenId = childData?.garden_id;
+        if (!gardenId) {
+          console.warn('Child profile missing garden_id');
+          setLoading(false);
+          return;
+        }
+        // Ensure garden exists (best‑effort)
+        await ensureGardenExists(gardenId).catch(console.warn);
+        // Listen to garden updates
+        unsubGarden = listenToGarden(gardenId, (data) => {
+          if (data) setGarden(data);
+          setLoading(false);
+        });
+        // Listen to child profile for live updates
+        unsubChild = listenToChildProfile(uid, setChild);
+      } catch (e) {
+        console.warn('Error initializing garden screen:', e);
+        setLoading(false);
+      }
+    };
+    init();
+
     return () => {
-      unsubGarden();
+      if (unsubGarden) unsubGarden();
       if (unsubChild) unsubChild();
     };
   }, []);
@@ -89,11 +152,12 @@ export default function GardenScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
 
       {/* Unified Header */}
-      <BrandHeader 
+      <BrandHeader
         style={styles.topAppBar}
+        transparent={true}
         rightContent={
           <View style={styles.appBarRight}>
             <View style={styles.pointsBadge}>
@@ -110,31 +174,40 @@ export default function GardenScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Hero Section */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.heroSection}
-          onPress={() => navigation.navigate('Actions')}
-        >
-          <Image
-            source={{ uri: heroImage }}
-            style={[styles.heroBgImage, !isHealthy && { opacity: 0.6 }]}
-            resizeMode="cover"
-          />
-          <View style={styles.heroOverlay} />
-          <View style={styles.heroContent}>
-            <View style={[styles.levelBadge, !isHealthy && { backgroundColor: 'rgba(255, 218, 214, 0.95)' }]}>
-              <Text style={styles.levelIcon}>{stageEmoji}</Text>
-              <Text style={[styles.levelText, !isHealthy && { color: '#ba1a1a' }]}>{stageLabel}</Text>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: heroScale }] }}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.heroSection}
+            onPress={() => navigation.navigate('Actions')}
+          >
+            <Image
+              source={{ uri: heroImage }}
+              style={[styles.heroBgImage, !isHealthy && { opacity: 0.6 }]}
+              resizeMode="cover"
+            />
+            <View style={styles.heroOverlay} />
+            <View style={styles.heroContent}>
+              <Animated.View style={[styles.aiPill, { transform: [{ translateY: floatAnim }] }]}>
+                <Text style={styles.aiPillDot}>●</Text>
+                <Text style={styles.aiPillText}>ZARA AI ANALYSIS</Text>
+              </Animated.View>
+
+              <Animated.View style={[styles.levelBadge, !isHealthy && { backgroundColor: 'rgba(255, 218, 214, 0.95)' }]}>
+                <Text style={styles.levelIcon}>{stageEmoji}</Text>
+                <Text style={[styles.levelText, !isHealthy && { color: '#ba1a1a' }]}>{stageLabel}</Text>
+              </Animated.View>
+
+              <Text style={styles.heroTitle}>
+                {isHealthy ? 'Your Garden\nIs Thriving 🌿' : 'Your Garden\nNeeds Love 🍂'}
+              </Text>
+              <Text style={styles.heroSubtitle}>Tap to open Zara AI scanner →</Text>
             </View>
-            <Text style={styles.heroTitle}>
-              {isHealthy ? 'Your Garden\nIs Thriving 🌿' : 'Your Garden\nNeeds Love 🍂'}
-            </Text>
-            <Text style={styles.heroSubtitle}>Tap to log an eco-action →</Text>
-          </View>
-        </TouchableOpacity>
+            <View style={styles.heroGlowBorder} />
+          </TouchableOpacity>
+        </Animated.View>
 
         {/* Metrics Bento Grid */}
-        <View style={styles.grid}>
+        <Animated.View style={[styles.grid, { opacity: fadeAnim }]}>
           {/* Health */}
           <View style={[styles.gridCard, !isHealthy && styles.gridCardError]}>
             <View style={[styles.iconCircle, { backgroundColor: isHealthy ? '#e9f0e1' : '#ffdad6' }]}>
@@ -176,7 +249,7 @@ export default function GardenScreen({ navigation }: any) {
               <View style={[styles.bar, { height: '60%', backgroundColor: '#e3ebdc' }]} />
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Streak Banner */}
         {(child?.current_streak ?? 0) > 0 && (
@@ -192,41 +265,44 @@ export default function GardenScreen({ navigation }: any) {
         {/* Community Activity */}
         <View style={styles.communitySection}>
           <View style={styles.communityTextContent}>
-            <Text style={styles.communityTitle}>Community Activity</Text>
+            <Text style={styles.communityTitle}>Community Pulse</Text>
             <Text style={styles.communityDesc}>
               {isHealthy ? 'Your local squad is crushing it! 🌟' : 'Your squad can help you recover!'}
             </Text>
           </View>
           <View style={styles.communityBadge}>
             <Text style={styles.fireIcon}>🔥</Text>
-            <Text style={styles.communityBadgeText}>Garden: {stage} stage</Text>
+            <Text style={styles.communityBadgeText}>Network: {stage} stage</Text>
           </View>
         </View>
 
         {/* Quick Action CTA */}
-        <View style={styles.ctaWrapper}>
+        <Animated.View style={[styles.ctaWrapper, { transform: [{ scale: pulseAnim }], opacity: fadeAnim }]}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('Camera')}
-            activeOpacity={0.82}
+            activeOpacity={0.85}
           >
             {/* Left icon circle */}
             <View style={styles.actionButtonIconWrap}>
-              <Text style={styles.actionButtonIcon}>📷</Text>
+              <Text style={styles.actionButtonIcon}>🤖</Text>
             </View>
 
             {/* Label */}
             <View style={styles.actionButtonLabelWrap}>
-              <Text style={styles.actionButtonText}>Log an Eco-Action</Text>
-              <Text style={styles.actionButtonSub}>Upload a photo to earn points</Text>
+              <Text style={styles.actionButtonText}>Initialize Zara Scan</Text>
+              <Text style={styles.actionButtonSub}>AI will verify your eco-action</Text>
             </View>
 
             {/* Right arrow */}
             <View style={styles.actionButtonArrowWrap}>
               <Text style={styles.actionButtonArrow}>→</Text>
             </View>
+            
+            {/* Inner glow effect */}
+            <View style={styles.actionButtonGlow} />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
       </ScrollView>
     </SafeAreaView>
@@ -236,29 +312,22 @@ export default function GardenScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#68756B',
+    color: '#166534',
+    fontWeight: '600',
   },
   topAppBar: {
-    height: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(246, 247, 242, 0.9)',
-    borderBottomWidth: 1,
-    borderBottomColor: '#D8E1D3',
-    zIndex: 50,
+    backgroundColor: 'transparent',
   },
 
   appBarRight: {
@@ -327,6 +396,18 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
   },
+  heroGlowBorder: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    borderWidth: 2, borderColor: 'rgba(74, 222, 128, 0.3)',
+    borderRadius: 24, zIndex: 10, pointerEvents: 'none',
+  },
+  aiPill: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(20, 83, 45, 0.7)',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, alignSelf: 'flex-start',
+    marginBottom: 8, borderWidth: 1, borderColor: 'rgba(74, 222, 128, 0.5)',
+  },
+  aiPillDot: { color: '#4ADE80', fontSize: 8, marginRight: 6 },
+  aiPillText: { color: '#4ADE80', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   levelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -336,19 +417,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignSelf: 'flex-start',
     marginBottom: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
   },
   levelIcon: { fontSize: 16, marginRight: 6 },
   levelText: { color: '#006e09', fontSize: 14, fontWeight: 'bold' },
   heroTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: '900',
     color: '#ffffff',
-    lineHeight: 40,
+    lineHeight: 42,
     marginBottom: 6,
+    letterSpacing: -0.5,
   },
   heroSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#A7F3D0',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   grid: {
     flexDirection: 'row',
@@ -359,20 +444,12 @@ const styles = StyleSheet.create({
   gridCard: {
     backgroundColor: '#FFFFFF',
     width: '47%',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 225, 211, 0.5)',
     ...Platform.select({
-      web: { boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.05)' },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 1,
-      },
+      web: { boxShadow: '0 8px 24px rgba(20,83,45,0.05)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 16, elevation: 3 },
     }),
     justifyContent: 'space-between',
     minHeight: 140,
@@ -402,20 +479,21 @@ const styles = StyleSheet.create({
   cardIcon: { fontSize: 24 },
   cardLabel: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#68756B',
+    fontWeight: '800',
+    color: '#166534',
     marginBottom: 4,
     letterSpacing: 0.5,
   },
   cardValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#14532D',
   },
   cardSubValue: {
     fontSize: 12,
-    color: '#68756B',
+    color: '#166534',
     marginTop: 2,
+    fontWeight: '600',
   },
   warningText: {
     fontSize: 12,
@@ -442,38 +520,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244, 180, 0, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(244, 180, 0, 0.3)',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 16,
   },
-  streakIcon: { fontSize: 20, marginRight: 10 },
-  streakText: { fontSize: 14, fontWeight: 'bold', color: '#1F2A1F', flex: 1 },
+  streakIcon: { fontSize: 24, marginRight: 10 },
+  streakText: { fontSize: 14, fontWeight: '800', color: '#14532D', flex: 1 },
   communitySection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 225, 211, 0.5)',
     marginBottom: 16,
     ...Platform.select({
-      web: { boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.05)' },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 1,
-      },
+      web: { boxShadow: '0 8px 24px rgba(20,83,45,0.05)' },
+      default: { shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 16, elevation: 3 },
     }),
   },
   communityTextContent: { marginBottom: 16 },
   communityTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  communityDesc: { fontSize: 15, color: '#68756B' },
+  communityDesc: { fontSize: 15, color: '#166534', fontWeight: '500' },
   communityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -488,66 +559,52 @@ const styles = StyleSheet.create({
   fireIcon: { fontSize: 20, marginRight: 8 },
   communityBadgeText: { fontSize: 15, fontWeight: 'bold', color: '#1F2A1F' },
   ctaWrapper: {
-    marginTop: 20,
-    marginBottom: 8,
+    marginTop: 16,
+    marginBottom: 12,
+    marginHorizontal: 16,
   },
   actionButton: {
-    backgroundColor: '#006e09',
+    backgroundColor: '#14532D',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 24,
+    justifyContent: 'center',
+    height: 60,
+    paddingHorizontal: 24,
+    borderRadius: 30,
     ...Platform.select({
-      web: { boxShadow: '0px 6px 20px rgba(0, 110, 9, 0.30)' },
+      web: { boxShadow: '0 8px 24px rgba(20,83,45,0.2)' },
       default: {
-        shadowColor: '#004d06',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.30,
-        shadowRadius: 16,
-        elevation: 10,
+        shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2, shadowRadius: 16, elevation: 6,
       },
     }),
   },
+  actionButtonGlow: {
+    display: 'none',
+  },
   actionButtonIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-    flexShrink: 0,
+    marginRight: 12,
   },
-  actionButtonIcon: { fontSize: 22 },
-  actionButtonLabelWrap: {
-    flex: 1,
-  },
+  actionButtonIcon: { fontSize: 20 },
+  actionButtonLabelWrap: { flex: 1, zIndex: 2, justifyContent: 'center' },
   actionButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '900',
     letterSpacing: -0.2,
   },
   actionButtonSub: {
-    color: 'rgba(255, 255, 255, 0.72)',
-    fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
+    color: '#A7F3D0',
+    fontSize: 11,
+    marginTop: 0,
+    fontWeight: '600',
   },
   actionButtonArrowWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginLeft: 12,
-    flexShrink: 0,
   },
   actionButtonArrow: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#4ADE80',
+    fontSize: 16,
+    fontWeight: '900',
   },
 });

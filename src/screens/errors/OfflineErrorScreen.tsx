@@ -6,17 +6,18 @@ import {
   Image, 
   TouchableOpacity, 
   SafeAreaView, 
-  StatusBar 
+  StatusBar,
+  Platform
 } from 'react-native';
 import BrandHeader from '../../components/BrandHeader';
 
 export default function OfflineErrorScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
       
       {/* Header */}
-      <BrandHeader style={styles.header} />
+      <BrandHeader style={styles.header} transparent={true} />
 
       <View style={styles.content}>
         <View style={styles.card}>
@@ -56,12 +57,10 @@ export default function OfflineErrorScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   header: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eff6e7',
+    backgroundColor: 'transparent',
   },
   content: {
     flex: 1,
@@ -69,17 +68,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 32,
     padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#D8E1D3',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
+    ...Platform.select({
+      web: { backdropFilter: 'blur(24px)', boxShadow: '0 10px 25px rgba(22,163,74,0.08)' },
+      default: { shadowColor: '#16A34A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+    }),
   },
   imageContainer: {
     width: '100%',
@@ -112,37 +110,47 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   description: {
     fontSize: 16,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 24,
     maxWidth: 280,
+    fontWeight: '500',
   },
   button: {
     width: '100%',
-    backgroundColor: '#006e09',
+    backgroundColor: '#14532D',
     borderRadius: 999,
-    paddingVertical: 14,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0 10px 25px rgba(20,83,45,0.3)' },
+      default: {
+        shadowColor: '#14532D', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
+      },
+    }),
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   buttonIcon: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 20,
     marginRight: 8,
   }
 });

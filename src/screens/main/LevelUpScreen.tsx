@@ -26,12 +26,12 @@ export default function LevelUpScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
       
       {/* Decorative Background Dots (Simplified for RN) */}
       <View style={styles.backgroundPattern} />
 
-      <BrandHeader style={styles.header} />
+      <BrandHeader style={styles.header} transparent={true} />
       <View style={styles.contentWrapper}>
 
         {/* Celebration Modal Container */}
@@ -95,7 +95,7 @@ export default function LevelUpScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   backgroundPattern: {
     position: 'absolute',
@@ -114,29 +114,20 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   header: {
-    position: 'absolute',
-    top: 40,
-    width: '100%',
     zIndex: 10,
   },
   modalCard: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 32,
     padding: 32,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
     ...Platform.select({
-      web: {
-        boxShadow: '0px 10px 30px rgba(56, 173, 50, 0.1)',
-      },
-      default: {
-        shadowColor: '#38ad32',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 30,
-        elevation: 10,
-      },
+      web: { backdropFilter: 'blur(24px)', boxShadow: '0 20px 40px rgba(22,163,74,0.1)' },
+      default: { shadowColor: '#16A34A', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 6 },
     }),
     overflow: 'hidden',
     position: 'relative',
@@ -227,9 +218,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   rewardText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#14532D',
   },
   textContainer: {
     alignItems: 'center',
@@ -238,51 +229,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   titleText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontSize: 44,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 8,
     letterSpacing: -1,
   },
   bodyText: {
     fontSize: 16,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
     lineHeight: 24,
     maxWidth: 280,
+    opacity: 0.8,
   },
   button: {
     width: '100%',
-    backgroundColor: '#006e09',
+    backgroundColor: '#14532D',
     borderRadius: 999,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       web: {
-        boxShadow: '0px 4px 8px rgba(0, 110, 9, 0.2)',
+        boxShadow: '0 10px 25px rgba(20,83,45,0.3)',
       },
       default: {
-        shadowColor: '#006e09',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowColor: '#14532D',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
       },
     }),
     zIndex: 10,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
     marginRight: 8,
+    letterSpacing: 0.5,
   },
   buttonIcon: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
   }
 });

@@ -59,10 +59,10 @@ export interface RewardLogEntry {
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
 /**
- * Ensures garden_karachi_01 exists in Firestore.
+ * Ensures the specified garden exists in Firestore.
  * Creates it with healthy starting values if it doesn't exist.
  */
-export async function ensureGardenExists(gardenId: string = 'garden_karachi_01'): Promise<void> {
+export async function ensureGardenExists(gardenId: string): Promise<void> {
   try {
     const gardenRef = doc(db, 'gardens', gardenId);
     const snap = await getDoc(gardenRef);
@@ -162,6 +162,13 @@ export function listenToAction(
   actionId: string,
   callback: (data: any | null) => void
 ): Unsubscribe {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn('[gardenService] listenToAction skipped: no authenticated user');
+    // If a callback is provided, signal null data (optional) – but we just return a no‑op unsubscribe
+    return () => {};
+  }
+  console.log('[gardenService] listenToAction attaching listener', { uid: user.uid, actionId });
   const actionRef = doc(db, 'actions', actionId);
   return onSnapshot(actionRef, (snap) => {
     if (snap.exists()) {

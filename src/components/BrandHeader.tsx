@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  SafeAreaView,
+} from 'react-native';
 
 interface BrandHeaderProps {
   showBackButton?: boolean;
@@ -7,86 +14,150 @@ interface BrandHeaderProps {
   leftContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   style?: any;
+  transparent?: boolean;
 }
 
-export default function BrandHeader({ showBackButton, onBack, leftContent, rightContent, style }: BrandHeaderProps) {
+const HEADER_HEIGHT = 60;
+
+export default function BrandHeader({
+  showBackButton,
+  onBack,
+  leftContent,
+  rightContent,
+  style,
+  transparent = false,
+}: BrandHeaderProps) {
   return (
-    <View style={[styles.header, style]}>
-      {/* Left side (Back Button or Custom Left Content) */}
-      <View style={styles.leftContainer}>
-        {leftContent ? leftContent : (
-          showBackButton && (
-            <TouchableOpacity onPress={onBack} style={styles.backButton}>
+    // SafeAreaView ensures the header respects the device status bar
+    <SafeAreaView style={[styles.safeArea, transparent && styles.safeAreaTransparent, style]}>
+      <View style={[styles.header, transparent && styles.headerTransparent]}>
+        {/* Left side: optional back button or custom left content */}
+        <View style={styles.sideAreaLeft}>
+          {leftContent ? (
+            <View style={styles.leftSlotContent}>{leftContent}</View>
+          ) : showBackButton ? (
+            <TouchableOpacity
+              onPress={onBack}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+            >
               <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
-          )
-        )}
-      </View>
+          ) : null}
+        </View>
 
-      {/* Center (Perfectly Centered Logo) */}
-      <View style={styles.centerContainer}>
-        <Text style={styles.brandIcon}>🍃</Text>
-        <Text style={styles.brandText}>GreenPulse</Text>
-      </View>
+        {/* Centered brand logo */}
+        <View style={styles.centerArea}>
+          <View style={styles.brandRow}>
+            <Text style={styles.brandIcon}>🍃</Text>
+            <Text style={styles.brandText}>GreenPulse</Text>
+          </View>
+        </View>
 
-      {/* Right side (rightContent) */}
-      <View style={styles.rightContainer}>
-        {rightContent}
+        {/* Right side: actions, badges, etc. */}
+        <View style={styles.sideAreaRight}>{rightContent}</View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    // SafeAreaView will handle top padding; background matches header
+    backgroundColor: '#F0FFF4', // updated base color to match new theme
+  },
+  safeAreaTransparent: {
+    backgroundColor: 'transparent',
+  },
   header: {
-    height: 72,
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    backgroundColor: '#F0FFF4', // updated base color
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(56, 173, 50, 0.2)', // subtle green border
+    paddingHorizontal: 16,
     zIndex: 50,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.03)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 2,
+        elevation: 2,
+      },
+    }),
   },
-  leftContainer: {
-    zIndex: 10,
-    flex: 1,
-    alignItems: 'flex-start',
+  headerTransparent: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
-  rightContainer: {
-    zIndex: 10,
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  centerContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+  leftArea: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: -1,
+    flex: 1,
   },
-  brandIcon: {
-    fontSize: 28,
-    color: '#006e09',
-    marginRight: 6,
-  },
-  brandText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#006e09',
-    letterSpacing: -0.5,
+  leftSlotContent: {
+    marginRight: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#EEF2EA',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#D8E1D3',
+    marginRight: 12,
   },
   backIcon: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#006e09',
-    fontWeight: 'bold',
+    fontWeight: '700',
+    lineHeight: Platform.OS === 'android' ? 22 : undefined,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandIcon: {
+    fontSize: 24,
+    marginRight: 6,
+    lineHeight: Platform.OS === 'android' ? 30 : undefined,
+  },
+  brandText: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#006e09',
+    letterSpacing: -0.3,
+    includeFontPadding: false,
+  },
+  rightSlot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sideAreaLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  sideAreaRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  centerArea: {
+    flex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

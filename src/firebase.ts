@@ -1,7 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { initializeAuth, getAuth, Auth, browserLocalPersistence, connectAuthEmulator } from "firebase/auth";
-// @ts-ignore: TS resolves DOM typings instead of React Native typings for this export
-import { getReactNativePersistence } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator, Firestore } from "firebase/firestore";
 import { Platform } from 'react-native';
 
@@ -30,8 +28,16 @@ try {
     });
   } else {
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    let persistence;
+    try {
+      const fbAuth = require('firebase/auth');
+      persistence = fbAuth.getReactNativePersistence ? fbAuth.getReactNativePersistence(AsyncStorage) : undefined;
+    } catch (e) {
+      console.warn('[firebase] Could not load react native persistence', e);
+    }
+    
     auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
+      persistence: persistence
     });
   }
 } catch (error: any) {

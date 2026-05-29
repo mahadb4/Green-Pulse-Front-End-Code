@@ -99,7 +99,7 @@ export default function LeaderboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F7F2" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F0FFF4" />
       
       {/* Top App Bar */}
       <BrandHeader
@@ -262,16 +262,10 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   topAppBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'rgba(246, 247, 242, 0.9)',
-    zIndex: 10,
+    backgroundColor: 'transparent',
   },
   appBarAvatar: {
     width: 40,
@@ -303,16 +297,17 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   pageTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
-    marginBottom: 4,
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#14532D',
+    marginBottom: 6,
     letterSpacing: -0.5,
   },
   pageSubtitle: {
     fontSize: 16,
-    color: '#68756B',
+    color: '#166534',
     textAlign: 'center',
+    opacity: 0.8,
   },
   tabsScroll: {
     marginBottom: 32,
@@ -326,25 +321,25 @@ const styles = StyleSheet.create({
   tabButton: {
     paddingVertical: 10,
     paddingHorizontal: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D8E1D3',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
     marginRight: 8,
   },
   tabButtonActive: {
-    backgroundColor: '#38ad32',
+    backgroundColor: '#14532D',
     borderWidth: 0,
     ...Platform.select({
       web: {
-        boxShadow: '0px 4px 8px rgba(56, 173, 50, 0.2)',
+        boxShadow: '0px 4px 8px rgba(20, 83, 45, 0.2)',
       },
       default: {
-        shadowColor: '#38ad32',
+        shadowColor: '#14532D',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.3,
         shadowRadius: 8,
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
@@ -365,7 +360,7 @@ const styles = StyleSheet.create({
   },
   podiumCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderBottomLeftRadius: 32,
@@ -374,8 +369,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginHorizontal: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 225, 211, 0.5)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
   },
   podiumSecond: {
     height: 200,
@@ -465,9 +460,9 @@ const styles = StyleSheet.create({
     color: '#757575',
   },
   podiumRankTextFirst: {
-    fontWeight: 'bold',
+    fontWeight: '800',
     fontSize: 18,
-    color: '#ffffff',
+    color: '#14532D',
   },
   crownIconContainer: {
     position: 'absolute',
@@ -489,20 +484,20 @@ const styles = StyleSheet.create({
   },
   podiumName: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '800',
+    color: '#14532D',
     marginTop: 40,
   },
   podiumNameFirst: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '900',
+    color: '#14532D',
     marginTop: 56,
   },
   scoreBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 110, 9, 0.1)', // primary/10
+    backgroundColor: 'rgba(74, 222, 128, 0.15)',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 16,
@@ -511,7 +506,7 @@ const styles = StyleSheet.create({
   scoreBadgeFirst: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 173, 50, 0.1)', // primary-container/10
+    backgroundColor: 'rgba(74, 222, 128, 0.25)',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
@@ -519,23 +514,23 @@ const styles = StyleSheet.create({
   },
   scoreBadgeIcon: {
     fontSize: 14,
-    color: '#006e09',
+    color: '#14532D',
     marginRight: 4,
   },
   scoreBadgeIconFirst: {
     fontSize: 16,
-    color: '#38ad32',
+    color: '#14532D',
     marginRight: 4,
   },
   scoreBadgeText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#006e09',
+    fontWeight: '900',
+    color: '#14532D',
   },
   scoreBadgeTextFirst: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#38ad32',
+    fontWeight: '900',
+    color: '#14532D',
   },
   topPercentBadge: {
     backgroundColor: '#e3ebdc',
@@ -556,15 +551,15 @@ const styles = StyleSheet.create({
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     padding: 16,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 225, 211, 0.3)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
   },
   listItemActive: {
-    backgroundColor: '#eff6e7', // surface-container-low
-    borderColor: 'rgba(56, 173, 50, 0.4)',
+    backgroundColor: 'rgba(74, 222, 128, 0.2)',
+    borderColor: 'rgba(74, 222, 128, 0.4)',
     overflow: 'hidden',
   },
   activeIndicator: {
@@ -573,7 +568,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 6,
-    backgroundColor: '#38ad32',
+    backgroundColor: '#14532D',
   },
   listRank: {
     width: 40,
@@ -585,22 +580,22 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   listRankActive: {
-    color: '#38ad32',
+    color: '#14532D',
     opacity: 1,
-    paddingLeft: 4, // Make room for active indicator
+    paddingLeft: 4,
   },
   listAvatarContainer: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#EEF2EA',
+    backgroundColor: 'rgba(74, 222, 128, 0.15)',
     marginRight: 16,
     borderWidth: 2,
     borderColor: '#FFFFFF',
     overflow: 'hidden',
   },
   listAvatarContainerActive: {
-    borderColor: '#38ad32',
+    borderColor: '#14532D',
   },
   listAvatar: {
     width: '100%',
@@ -611,42 +606,43 @@ const styles = StyleSheet.create({
   },
   listName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1F2A1F',
+    fontWeight: '800',
+    color: '#14532D',
   },
   listNameActive: {
-    color: '#1F2A1F',
+    color: '#14532D',
   },
   listSubtext: {
     fontSize: 13,
-    color: '#68756B',
+    color: '#166534',
     marginTop: 2,
+    fontWeight: '500',
   },
   listScoreBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 110, 9, 0.05)',
+    backgroundColor: 'rgba(74, 222, 128, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   listScoreBadgeActive: {
-    backgroundColor: 'rgba(56, 173, 50, 0.1)',
+    backgroundColor: 'rgba(74, 222, 128, 0.2)',
   },
   listScoreText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#006e09',
+    fontWeight: '900',
+    color: '#14532D',
     marginRight: 4,
   },
   listScoreTextActive: {
-    color: '#38ad32',
+    color: '#14532D',
   },
   listScoreIcon: {
     fontSize: 16,
-    color: '#006e09',
+    color: '#14532D',
   },
   listScoreIconActive: {
-    color: '#38ad32',
+    color: '#14532D',
   }
 });

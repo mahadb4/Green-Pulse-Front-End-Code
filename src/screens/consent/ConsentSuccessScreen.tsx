@@ -1,13 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Dimensions, ScrollView, Alert, Platform } from 'react-native';
 import BrandHeader from '../../components/BrandHeader';
+import AnimatedBackground from '../../components/AnimatedBackground';
 
 const { width } = Dimensions.get('window');
 
-export default function ConsentSuccessScreen({ navigation }: any) {
+export default function ConsentSuccessScreen({ navigation, route }: any) {
   const handleEnterGarden = () => {
     if (navigation && navigation.navigate) {
-      navigation.navigate('Main');
+      navigation.navigate('ZaraIntro', { nickname: route?.params?.nickname });
     }
   };
 
@@ -27,16 +28,15 @@ export default function ConsentSuccessScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BrandHeader />
+      <AnimatedBackground />
+
+      <BrandHeader transparent={true} />
+      
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.innerContainer}>
 
           {/* Success Card */}
-          <View style={styles.card}>
-            {/* Confetti / Decorative Dots */}
-            <View style={[styles.dot, styles.dot1]} />
-            <View style={[styles.dot, styles.dot2]} />
-            <View style={[styles.dot, styles.dot3]} />
+          <View style={styles.glassCard}>
 
             {/* 
               Zara Mascot Waiting State 
@@ -59,11 +59,11 @@ export default function ConsentSuccessScreen({ navigation }: any) {
 
             {/* Primary Action */}
             <TouchableOpacity 
-              style={styles.button} 
+              style={styles.buttonPrimary} 
               onPress={handleEnterGarden}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <Text style={styles.buttonText}>Enter Garden</Text>
+              <Text style={styles.buttonTextPrimary}>Enter Garden</Text>
               <Text style={styles.arrowIcon}>→</Text>
             </TouchableOpacity>
 
@@ -82,7 +82,7 @@ export default function ConsentSuccessScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: '#F0FFF4',
   },
   scrollContent: {
     flexGrow: 1,
@@ -94,108 +94,92 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 40,
+    zIndex: 10,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
+  glassCard: {
     width: '100%',
-    maxWidth: 400,
-    borderRadius: 24,
+    maxWidth: 440,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     padding: 32,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,1)',
     alignItems: 'center',
     position: 'relative',
-    overflow: 'hidden',
-    // Shadow
-    shadowColor: '#2F8F2A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 5,
-  },
-  dot: {
-    position: 'absolute',
-    borderRadius: 999,
-  },
-  dot1: {
-    top: 32,
-    left: 32,
-    width: 16,
-    height: 16,
-    backgroundColor: '#87fc77',
-    opacity: 0.5,
-  },
-  dot2: {
-    top: 48,
-    right: 40,
-    width: 24,
-    height: 24,
-    backgroundColor: '#94f68b',
-    opacity: 0.4,
-  },
-  dot3: {
-    top: 96,
-    left: '25%',
-    width: 12,
-    height: 12,
-    backgroundColor: '#fa5f9c',
-    opacity: 0.3,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(24px)',
+        boxShadow: '0 20px 40px rgba(22,163,74,0.15)',
+      },
+      default: {
+        shadowColor: '#16A34A',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+      },
+    }),
   },
   zaraContainer: {
-    width: 192,
-    height: 192,
-    borderRadius: 96,
-    backgroundColor: '#EEF2EA',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(74,222,128,0.15)',
     marginBottom: 32,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     zIndex: 10,
-    shadowColor: '#2F8F2A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
   },
   zaraImage: {
     width: '100%',
     height: '100%',
   },
   title: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#006e09',
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#14532D',
     marginBottom: 12,
     textAlign: 'center',
     zIndex: 10,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#68756B',
+    fontSize: 16,
+    color: '#166534',
+    opacity: 0.8,
     textAlign: 'center',
     marginBottom: 32,
     maxWidth: 280,
-    lineHeight: 28,
+    lineHeight: 24,
     zIndex: 10,
   },
-  button: {
-    backgroundColor: '#38AD32',
+  buttonPrimary: {
+    backgroundColor: '#14532D',
     flexDirection: 'row',
     width: '100%',
     height: 56,
-    borderRadius: 18,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
     zIndex: 10,
-    shadowColor: '#2F8F2A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
+    ...Platform.select({
+      web: { boxShadow: '0 10px 25px rgba(20,83,45,0.3)' },
+      default: {
+        shadowColor: '#14532D',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
+      },
+    }),
   },
-  buttonText: {
+  buttonTextPrimary: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
     marginRight: 8,
   },
   arrowIcon: {
@@ -208,9 +192,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   secondaryButtonText: {
-    color: '#68756B',
-    fontSize: 12,
+    color: '#14532D',
+    fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+    opacity: 0.8,
   }
 });
