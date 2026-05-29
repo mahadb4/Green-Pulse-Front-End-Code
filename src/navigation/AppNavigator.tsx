@@ -16,6 +16,7 @@ import ConsentSuccessScreen from '../screens/consent/ConsentSuccessScreen';
 import ZaraIntroScreen from '../screens/onboarding/ZaraIntroScreen';
 
 import GardenScreen from '../screens/main/GardenScreen';
+import WorldScreen from '../screens/main/WorldScreen';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import CameraScreen from '../screens/main/CameraScreen';
@@ -51,11 +52,18 @@ function MainTabNavigator() {
         }
       }}
     >
-      <Tab.Screen 
-        name="Garden" 
-        component={GardenScreen} 
-        options={{ 
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏡</Text> 
+      <Tab.Screen
+        name="World"
+        component={WorldScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🌍</Text>
+        }}
+      />
+      <Tab.Screen
+        name="Garden"
+        component={GardenScreen}
+        options={{
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏡</Text>
         }}
       />
       <Tab.Screen 

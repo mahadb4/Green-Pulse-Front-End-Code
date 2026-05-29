@@ -16,7 +16,7 @@ export async function signInAnonymously() {
                 current_streak: 0,
                 parent_approved: false,
                 nickname: null,
-                garden_id: 'garden_karachi_01',
+                garden_id: `garden_${uid}`,
                 last_action_at: null,
                 fcm_token: null,
             });

@@ -186,7 +186,7 @@ export async function submitAction(
 
     const result = await Promise.race([callPromise, timeoutPromise]);
     console.log('[actionService] submitAction Cloud Function result:', result.data);
-    return result.data;
+    return result.data as SubmitActionResult;
   } catch (cloudFnError: any) {
     console.warn('[actionService] Cloud Function call failed, falling back:', {
       code: cloudFnError?.code,

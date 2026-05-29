@@ -22,6 +22,7 @@ import {
   getHealthLabel,
   getStageEmoji,
   getStageLabel,
+  NEW_WORLD_DEFAULTS,
   GardenData,
   ChildData,
 } from '../../services/gardenService';
@@ -36,15 +37,7 @@ const GARDEN_HERO_IMAGES: Record<string, string> = {
 };
 
 export default function GardenScreen({ navigation }: any) {
-  const [garden, setGarden] = useState<GardenData>({
-  garden_health: 0,
-  garden_stage: 'barren',
-  water_level: 0,
-  nutrient_level: 0,
-  action_queue: [],
-  member_count: 0,
-  created_at: null,
-});
+  const [garden, setGarden] = useState<GardenData>({ ...NEW_WORLD_DEFAULTS, garden_health: 0, garden_stage: 'barren' });
   const [child, setChild] = useState<ChildData | null>(null);
   const [loading, setLoading] = useState(true);
 
