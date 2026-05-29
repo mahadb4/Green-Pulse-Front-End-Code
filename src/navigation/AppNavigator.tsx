@@ -12,6 +12,7 @@ import StudentInfoScreen from '../screens/onboarding/StudentInfoScreen';
 import OtpScreen from '../screens/consent/OtpScreen';
 import VpcGateScreen from '../screens/onboarding/VpcGateScreen';
 import DataReviewScreen from '../screens/consent/DataReviewScreen';
+import ParentAuthScreen from '../screens/consent/ParentAuthScreen';
 import ConsentSuccessScreen from '../screens/consent/ConsentSuccessScreen';
 import ZaraIntroScreen from '../screens/onboarding/ZaraIntroScreen';
 
@@ -102,6 +103,7 @@ export default function AppNavigator() {
       <Stack.Screen name="VpcGate" component={VpcGateScreen} />
       <Stack.Screen name="Otp" component={OtpScreen} />
       <Stack.Screen name="DataReview" component={DataReviewScreen} />
+      <Stack.Screen name="ParentAuth" component={ParentAuthScreen} />
       <Stack.Screen name="ConsentSuccess" component={ConsentSuccessScreen} />
       <Stack.Screen name="ZaraIntro" component={ZaraIntroScreen} />
 

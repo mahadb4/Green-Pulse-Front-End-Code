@@ -15,7 +15,7 @@ export default function ParentEntryScreen({ navigation }: any) {
         </Text>
         <TouchableOpacity
           style={styles.btn}
-          onPress={() => navigation.navigate('ParentDashboard')}
+          onPress={() => navigation.navigate('ParentAuth', { purpose: 'dashboard', onSuccessRoute: 'ParentDashboard' })}
           activeOpacity={0.85}
         >
           <Text style={styles.btnText}>Enter Parent Dashboard →</Text>

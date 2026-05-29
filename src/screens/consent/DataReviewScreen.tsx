@@ -18,12 +18,6 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import BrandHeader from '../../components/BrandHeader';
 import AnimatedBackground from '../../components/AnimatedBackground';
 
-// Generate a cryptographically-adequate 6-digit OTP
-function generateOtp(): string {
-  const digits = Math.floor(100000 + Math.random() * 900000);
-  return String(digits);
-}
-
 // Basic email format validation
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
@@ -62,59 +56,27 @@ export default function DataReviewScreen({ navigation, route }: any) {
 
     setLoading(true);
 
-    // ── Generate OTP and store in Firestore ──────────────────────────────────
-    // The OTP is stored on the child's document so OtpScreen can validate it.
-    const otp = generateOtp();
-    const otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-
+    // Store the parent email (used to label the authenticator account), then move
+    // on to TOTP enrolment + verification handled by ParentAuth.
     async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
       return Promise.race([
         p,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error('Firestore timeout')), ms)
-        ),
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), ms)),
       ]);
     }
-
     try {
-      await withTimeout(
-        setDoc(
-          doc(db, 'children', uid!),
-          {
-            pending_otp: otp,
-            pending_otp_expires: otpExpiresAt,
-            parent_email: trimmed,
-          },
-          { merge: true }
-        ),
-        6000
-      );
-
-      // ── Dev mode: show the OTP since there is no email infra yet ─────────────
-      Alert.alert(
-        '📧 OTP Generated',
-        `In production this would be emailed to ${trimmed}.\n\n` +
-        `For testing, your code is:\n\n` +
-        `  ${otp}\n\n` +
-        `(Valid for 10 minutes)`,
-        [
-          {
-            text: 'Got it',
-            onPress: () => navigation.navigate('Otp', { nickname: route?.params?.nickname }),
-          },
-        ]
-      );
+      await withTimeout(setDoc(doc(db, 'children', uid!), { parent_email: trimmed }, { merge: true }), 6000);
     } catch (err: any) {
-      console.warn('[DataReview] Could not store OTP:', err?.message);
-      // Still navigate — OTP screen will do best-effort validation
-      Alert.alert(
-        'Notice',
-        'Could not reach the server. Proceeding in offline mode.',
-        [{ text: 'Continue', onPress: () => navigation.navigate('Otp', { nickname: route?.params?.nickname }) }]
-      );
+      console.warn('[DataReview] Could not store parent_email (continuing):', err?.message);
     } finally {
       setLoading(false);
     }
+
+    navigation.navigate('ParentAuth', {
+      purpose: 'consent',
+      onSuccessRoute: 'ConsentSuccess',
+      nickname: route?.params?.nickname,
+    });
   };
 
   const handleCancel = () => {
@@ -144,7 +106,7 @@ export default function DataReviewScreen({ navigation, route }: any) {
                 </View>
                 <Text style={styles.titleText}>Parent Verification</Text>
                 <Text style={styles.subtitleText}>
-                  Enter a parent or guardian's email. We'll generate a verification code.
+                  Enter a parent or guardian's email. Next you'll link an authenticator app (Google Authenticator / Authy) for secure approval.
                 </Text>
               </View>
 
@@ -177,7 +139,7 @@ export default function DataReviewScreen({ navigation, route }: any) {
                   <View style={styles.securityTextContainer}>
                     <Text style={styles.securityTitle}>Secure Verification</Text>
                     <Text style={styles.securityText}>
-                      A 6-digit code will be sent to the parent's email. Only valid for 10 minutes.
+                      You'll scan a QR into an authenticator app, then enter its 6-digit code. The code refreshes every 30 seconds.
                     </Text>
                   </View>
                 </View>
@@ -194,7 +156,7 @@ export default function DataReviewScreen({ navigation, route }: any) {
                       <ActivityIndicator color="#ffffff" />
                     ) : (
                       <>
-                        <Text style={styles.buttonTextPrimary}>Send OTP</Text>
+                        <Text style={styles.buttonTextPrimary}>Continue</Text>
                         <Text style={styles.arrowIcon}>→</Text>
                       </>
                     )}

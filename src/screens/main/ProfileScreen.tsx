@@ -258,7 +258,7 @@ export default function ProfileScreen({ navigation }: any) {
         {/* Parent Dashboard Link */}
         <TouchableOpacity
           style={styles.parentLink}
-          onPress={() => navigation.navigate('ParentDashboard')}
+          onPress={() => navigation.navigate('ParentAuth', { purpose: 'dashboard', onSuccessRoute: 'ParentDashboard' })}
         >
           <Text style={styles.parentLinkIcon}>🛡️</Text>
           <Text style={styles.parentLinkText}>Switch to Parent Mode</Text>

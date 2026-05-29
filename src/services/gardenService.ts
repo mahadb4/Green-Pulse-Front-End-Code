@@ -374,6 +374,35 @@ export function listenToAction(
   });
 }
 
+// ─── Parent TOTP (authenticator app) ─────────────────────────────────────────
+
+export interface TotpSetup {
+  secret: string;
+  otpauthUrl: string;
+  alreadyEnrolled: boolean;
+}
+
+/** Get (or create) the parent's TOTP secret + otpauth URL to render an enrolment QR. */
+export async function setupParentTotp(): Promise<TotpSetup> {
+  const fn = httpsCallable(getFunctions(getApp(), 'us-central1'), 'setupParentTotp');
+  const res: any = await fn({});
+  return res.data as TotpSetup;
+}
+
+/**
+ * Verify a 6-digit code from the parent's authenticator app.
+ * purpose 'consent' also approves the child server-side on success.
+ * Throws a FirebaseError (with .message) on bad input / not-enrolled.
+ */
+export async function verifyParentTotp(
+  code: string,
+  purpose: 'consent' | 'dashboard'
+): Promise<{ valid: boolean }> {
+  const fn = httpsCallable(getFunctions(getApp(), 'us-central1'), 'verifyParentTotp');
+  const res: any = await fn({ code, purpose });
+  return res.data as { valid: boolean };
+}
+
 // ─── Leaderboard ──────────────────────────────────────────────────────────────
 
 export interface LeaderboardEntry {
